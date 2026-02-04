@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="App/App.fsproj" />
+  <Project Path="IntegrationTests/IntegrationTests.fsproj" />
+  <Project Path="Tests/Tests.fsproj" />
+</Solution>
