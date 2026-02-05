@@ -1,5 +1,7 @@
 module App.ReadDomain
 
-type Book = { Id: int64; Title: string }
+type BookId = BookId of int64
 
-let createBook (id: int64) (title: string) : Book = { Id = id; Title = title }
+type Book = { Id: BookId; Title: string }
+
+let createBook (id: BookId) (title: string) : Book = { Id = id; Title = title }
