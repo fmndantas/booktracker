@@ -13,6 +13,8 @@
     <Compile Include="WriteDomain.fs" />
     <Compile Include="Command.fsi" />
     <Compile Include="Command.fs" />
+    <Compile Include="Workflow.fsi" />
+    <Compile Include="Workflow.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
