@@ -1,7 +1,7 @@
 module App.Query
 
-open ReadDomain
+module R = ReadDomain
 
-let getBooks (connectionString: string) : Book list =
+let getBooks (connectionString: string) : R.Book list =
   let ctx = Context.getReadContext connectionString
-  ctx.Main.Book |> Seq.map (fun b -> createBook b.Id b.Title) |> List.ofSeq
+  ctx.Main.Book |> Seq.map (fun b -> R.createBook b.Id b.Title) |> List.ofSeq

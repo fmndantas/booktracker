@@ -9,6 +9,8 @@
     <Compile Include="Context.fs" />
     <Compile Include="ReadDomain.fs" />
     <Compile Include="Query.fs" />
+    <Compile Include="WriteDomain.fs" />
+    <Compile Include="Command.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
