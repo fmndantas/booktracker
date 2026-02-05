@@ -6,6 +6,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="Context.fs" />
+    <Compile Include="ReadDomain.fs" />
     <Compile Include="Query.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
