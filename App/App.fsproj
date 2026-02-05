@@ -8,8 +8,10 @@
   <ItemGroup>
     <Compile Include="Context.fs" />
     <Compile Include="ReadDomain.fs" />
+    <Compile Include="Query.fsi" />
     <Compile Include="Query.fs" />
     <Compile Include="WriteDomain.fs" />
+    <Compile Include="Command.fsi" />
     <Compile Include="Command.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
