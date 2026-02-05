@@ -3,26 +3,31 @@ module IntegrationTests.CommandSpec
 open Expecto
 open Expecto.Flip.Expect
 
-// TODO: dedup with QuerySpec.fs
-let testDbConnectionString = "DataSource=" + __SOURCE_DIRECTORY__ + "/../dummy.db"
-
 module ctx = App.Context
 module sut = App.Command
+module R = App.ReadDomain
+module W = App.WriteDomain
 
 let ``it create a book`` =
   testCaseAsync "it create a book"
   <| async {
     // arrange
-    do! Utils.cleanDatabase testDbConnectionString
+    do! Utils.cleanDatabase Utils.TestDbConnectionString
 
     // act
-    let! result = sut.createBook testDbConnectionString { Title = Utils.random5String () }
+    let bookToSave = { Title = Utils.random5String () }: W.Book
+    let! result = sut.createBook Utils.TestDbConnectionString bookToSave
 
-    // App.Query.getBooks testDbConnectionString
-    let savedBooks = App.Query.getBooks testDbConnectionString
+    // assert
+    let savedBooks = App.Query.getBooks Utils.TestDbConnectionString
+
     savedBooks |> hasLength "no book was saved" 1
-    let book0Id = savedBooks.Head.Id
-    result |> equal "wrong result" book0Id
+
+    savedBooks.Head
+    |> equal "wrong book" {
+      Id = result
+      Title = bookToSave.Title
+    }
   }
 
 [<Tests>]

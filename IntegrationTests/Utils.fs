@@ -4,6 +4,9 @@ open System
 
 module ctx = App.Context
 
+[<Literal>]
+let TestDbConnectionString = "DataSource=" + __SOURCE_DIRECTORY__ + "/../dummy.db"
+
 let randomString (size: int) : string =
   let letters = [ 'a' .. 'z' ]
   let generateNextIdx () = letters |> List.length |> Random().Next

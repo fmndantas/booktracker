@@ -8,17 +8,15 @@ open Expecto.Flip.Expect
 module ctx = App.Context
 module sut = App.Query
 
-let testDbConnectionString = "DataSource=" + __SOURCE_DIRECTORY__ + "/../dummy.db"
-
 let ``it get books`` =
   testCaseAsync "it get books"
   <| async {
     // arrange
-    do! Utils.cleanDatabase testDbConnectionString
-    let! newBook = Utils.createRandomBook testDbConnectionString
+    do! Utils.cleanDatabase Utils.TestDbConnectionString
+    let! newBook = Utils.createRandomBook Utils.TestDbConnectionString
 
     // act
-    let result = sut.getBooks testDbConnectionString
+    let result = sut.getBooks Utils.TestDbConnectionString
 
     // assert
     result |> hasLength "wrong result length" 1
