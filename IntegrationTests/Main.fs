@@ -1,7 +1,8 @@
-﻿module IntegrationTests
+﻿namespace IntegrationTests
 
 open Expecto
 
-[<EntryPoint>]
-let main argv =
-    Tests.runTestsInAssemblyWithCLIArgs [] argv
+module Main = 
+    [<EntryPoint>]
+    let main argv =
+        runTestsInAssemblyWithCLIArgs [] argv

@@ -1,4 +1,4 @@
-module QuerySpec
+module IntegrationTests.QuerySpec
 
 open Expecto
 open Expecto.Flip.Expect
