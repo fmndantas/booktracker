@@ -3,8 +3,7 @@ module IntegrationTests.CommandSpec
 open Expecto
 open Expecto.Flip.Expect
 
-module ctx = App.Context
-module sut = App.Command
+module Sut = App.Command
 module R = App.ReadDomain
 module W = App.WriteDomain
 
@@ -16,7 +15,7 @@ let ``it create a book`` =
 
     // act
     let bookToSave = { Title = Utils.random5String () }: W.Book
-    let! result = sut.createBook Utils.TestDbConnectionString bookToSave
+    let! result = Sut.createBook Utils.TestDbConnectionString bookToSave
 
     // assert
     let savedBooks = App.Query.getBooks Utils.TestDbConnectionString

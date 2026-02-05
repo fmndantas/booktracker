@@ -5,8 +5,8 @@ open App.ReadDomain
 open Expecto
 open Expecto.Flip.Expect
 
-module ctx = App.Context
-module sut = App.Query
+module Ctx = App.Context
+module Sut = App.Query
 
 let ``it get books`` =
   testCaseAsync "it get books"
@@ -16,7 +16,7 @@ let ``it get books`` =
     let! newBook = Utils.createRandomBook Utils.TestDbConnectionString
 
     // act
-    let result = sut.getBooks Utils.TestDbConnectionString
+    let result = Sut.getBooks Utils.TestDbConnectionString
 
     // assert
     result |> hasLength "wrong result length" 1
