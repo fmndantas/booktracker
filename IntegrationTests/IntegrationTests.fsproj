@@ -7,7 +7,6 @@
 
   <ItemGroup>
     <Compile Include="Utils.fs" />
-    <Compile Include="Sample.fs" />
     <Compile Include="QuerySpec.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
