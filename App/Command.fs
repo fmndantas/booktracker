@@ -8,5 +8,5 @@ let createBook (connectionString: string) (book: W.Book) : Async<WriteDomain.Boo
     let ctxBook = ctx.Main.Book.Create()
     ctxBook.Title <- book.Title
     do! ctx.SubmitUpdatesAsync() |> Async.AwaitTask
-    return W.BookId ctxBook.Id
+    return W.createBookId ctxBook.Id
   }

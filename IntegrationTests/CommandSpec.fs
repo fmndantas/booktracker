@@ -24,9 +24,7 @@ let ``it create a book`` =
 
     savedBooks.Head
     |> equal "wrong book" {
-      Id =
-        match result with
-        | W.BookId v -> R.BookId v
+      Id = result |> W.getBookIdValue |> R.createBookId
       Title = bookToSave.Title
     }
   }

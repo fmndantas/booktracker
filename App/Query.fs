@@ -6,5 +6,5 @@ let getBooks (connectionString: string) : R.Book list =
   let ctx = Context.getReadContext connectionString
 
   ctx.Main.Book
-  |> Seq.map (fun b -> R.createBook (R.BookId b.Id) b.Title)
+  |> Seq.map (fun b -> R.createBook (R.createBookId b.Id) b.Title)
   |> List.ofSeq
