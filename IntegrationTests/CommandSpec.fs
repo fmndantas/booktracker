@@ -14,7 +14,7 @@ let ``it create a book`` =
     do! Utils.cleanDatabase Utils.TestDbConnectionString
 
     // act
-    let bookToSave = { Title = Utils.random5String () }: W.Book
+    let bookToSave = W.createBook (Utils.random5String ()) None None None
     let! result = Sut.createBook Utils.TestDbConnectionString bookToSave
 
     // assert
@@ -22,11 +22,14 @@ let ``it create a book`` =
 
     savedBooks |> hasLength "no book was saved" 1
 
-    savedBooks.Head
-    |> equal "wrong book" {
-      Id = result |> W.getBookIdValue |> R.createBookId
-      Title = bookToSave.Title
-    }
+    result
+    |> wantOk "result is not ok"
+    |> fun bookId ->
+        savedBooks.Head
+        |> equal "wrong book" {
+          Id = bookId |> W.getBookIdValue |> R.createBookId
+          Title = bookToSave.Title
+        }
   }
 
 [<Tests>]

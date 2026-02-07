@@ -2,11 +2,11 @@ module App.Command
 
 module W = WriteDomain
 
-let createBook (connectionString: string) (book: W.Book) : Async<WriteDomain.BookId> =
+let createBook (connectionString: string) (book: W.Book) : Async<Result<WriteDomain.BookId, string list>> =
   async {
     let ctx = Context.getWriteContext connectionString
     let ctxBook = ctx.Main.Book.Create()
     ctxBook.Title <- book.Title
     do! ctx.SubmitUpdatesAsync() |> Async.AwaitTask
-    return W.createBookId ctxBook.Id
+    return ctxBook.Id |> W.createBookId |> Ok
   }
