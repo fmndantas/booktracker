@@ -1,7 +1,7 @@
 create table book (
-    id integer primary key asc,
+    id integer primary key asc not null,
     title string not null,
     author string,
-    genre string,
+    main_topic string,
     filepath string
 );

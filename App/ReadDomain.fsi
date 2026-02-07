@@ -5,18 +5,24 @@ open System
 type BookId
 type ReadingLogId
 
-type Book = { Id: BookId; Title: string }
+type Book =
+    { Id: BookId
+      Title: string
+      Author: string option
+      MainTopic: string option
+      Filepath: string option }
 
-type ReadingLog = {
-  Id: ReadingLogId
-  BookId: BookId
-  InitialPage: int
-  FinalPage: int
-  Timestamp: DateTime
-  NextTopic: string option
-}
+type ReadingLog =
+    { Id: ReadingLogId
+      BookId: BookId
+      InitialPage: int
+      FinalPage: int
+      Timestamp: DateTime
+      NextTopic: string option }
 
-val createBook: BookId -> string -> Book
+val createBook:
+    id: BookId -> title: string -> author: string option -> mainTopic: string option -> filepath: string option -> Book
+
 val createBookId: int64 -> BookId
 val createReadingLogId: int64 -> ReadingLogId
 

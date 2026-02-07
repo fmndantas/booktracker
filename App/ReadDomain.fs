@@ -5,7 +5,13 @@ open System
 type BookId = BookId of int64
 type ReadingLogId = ReadingLogId of int64
 
-type Book = { Id: BookId; Title: string }
+type Book = {
+  Id: BookId
+  Title: string
+  Author: string option
+  MainTopic: string option
+  Filepath: string option
+}
 
 type ReadingLog = {
   Id: ReadingLogId
@@ -16,9 +22,28 @@ type ReadingLog = {
   NextTopic: string option
 }
 
-let createBook (id: BookId) (title: string) : Book = { Id = id; Title = title }
-let createBookId v = BookId v 
-let createReadingLogId v = ReadingLogId v 
+let createBook
+  (id: BookId)
+  (title: string)
+  (author: string option)
+  (mainTopic: string option)
+  (filepath: string option)
+  : Book =
+  {
+    Id = id
+    Title = title
+    Author = author
+    MainTopic = mainTopic
+    Filepath = filepath
+  }
 
-let getBookIdValue bookId = match bookId with BookId v -> v
-let getReadingLogIdValue readingLogId = match readingLogId with ReadingLogId v -> v
+let createBookId v = BookId v
+let createReadingLogId v = ReadingLogId v
+
+let getBookIdValue bookId =
+  match bookId with
+  | BookId v -> v
+
+let getReadingLogIdValue readingLogId =
+  match readingLogId with
+  | ReadingLogId v -> v

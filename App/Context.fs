@@ -10,7 +10,8 @@ type SQL =
     DatabaseVendor=Common.DatabaseProviderTypes.SQLITE,
     SQLiteLibrary=Common.SQLiteLibrary.MicrosoftDataSqlite,
     ConnectionString=dummyDbConnectionString,
-    CaseSensitivityChange=Common.CaseSensitivityChange.ORIGINAL
+    CaseSensitivityChange=Common.CaseSensitivityChange.ORIGINAL,
+    UseOptionTypes=Common.NullableColumnType.VALUE_OPTION
    >
 
 let getReadContext (connectionSting: string) =

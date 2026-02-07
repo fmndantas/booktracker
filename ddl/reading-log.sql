@@ -1,5 +1,5 @@
 create table reading_log (
-    id integer primary key asc,
+    id integer primary key asc not null,
     id_book integer not null,
     initial_page integer not null,
     final_page integer not null,
