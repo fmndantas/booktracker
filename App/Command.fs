@@ -2,7 +2,9 @@ module App.Command
 
 module W = WriteDomain
 
-let createBook (connectionString: string) (book: W.Book) : Async<Result<WriteDomain.BookId, string list>> =
+open App.CommonTypes
+
+let createBook (connectionString: string) (book: W.Book) : Async<Result<WriteDomain.BookId, AppError list>> =
   async {
     let context = Context.getWriteContext connectionString
     let contextBook = context.Main.Book.Create()

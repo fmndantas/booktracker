@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="CommonTypes.fs" />
     <Compile Include="Context.fs" />
     <Compile Include="ReadDomain.fsi" />
     <Compile Include="ReadDomain.fs" />
