@@ -3,7 +3,7 @@ module App.Context
 open FSharp.Data.Sql
 
 [<Literal>]
-let dummyDbConnectionString = "DataSource=" + __SOURCE_DIRECTORY__ + "/../dummy.db"
+let dummyDbConnectionString = "DataSource=" + __SOURCE_DIRECTORY__ + "/../ddl/dummy.db"
 
 type SQL =
   SQLite.SqlDataProvider<
