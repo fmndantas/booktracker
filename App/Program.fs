@@ -8,6 +8,8 @@ let bookFolder = "/home/fernando/books"
 let connectionString = "DataSource=" + __SOURCE_DIRECTORY__ + "/../booktracker.db"
 
 let createBook () =
-  Workflow.createBook connectionString bookFolder |> Async.RunSynchronously
+  Workflow.createBook connectionString bookFolder
 
-createBook () |> ignore
+let getBooks () = Workflow.getBooks connectionString
+
+getBooks () |> Async.RunSynchronously

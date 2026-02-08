@@ -53,3 +53,23 @@ let createBook (connectionString: string) (bookFolder: string) : Async<unit> =
 
       AnsiConsole.MarkupLine errors
   }
+
+let getBooks (connectionString: string) : Async<unit> =
+  async {
+    let books = Query.getBooks connectionString
+
+    let table = Table().AddColumns("Title", "Author", "Main topic", "Filepath")
+
+    books
+    |> List.iter (fun b ->
+      let values = [|
+        b.Title
+        b.Author |> Option.defaultValue "_"
+        b.MainTopic |> Option.defaultValue "-"
+        b.Filepath |> Option.defaultValue "-"
+      |]
+
+      values |> table.AddRow |> ignore)
+    
+    AnsiConsole.Write table
+  }
