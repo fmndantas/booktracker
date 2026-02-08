@@ -12,11 +12,11 @@ let ``it get books`` =
   testCaseAsync "it get books"
   <| async {
     // arrange
-    do! Utils.cleanDatabase Utils.TestDbConnectionString
-    let! newBook = Utils.createRandomBook Utils.TestDbConnectionString
+    do! Utils.cleanDatabase Utils.testDbConnectionString
+    let! newBook = Utils.createRandomBook Utils.testDbConnectionString
 
     // act
-    let result = Sut.getBooks Utils.TestDbConnectionString
+    let result = Sut.getBooks Utils.testDbConnectionString
 
     // assert
     result |> hasLength "wrong result length" 1

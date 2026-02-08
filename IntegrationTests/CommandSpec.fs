@@ -11,7 +11,7 @@ let ``it creates a book`` =
   testCaseAsync "it create a book"
   <| async {
     // arrange
-    do! Utils.cleanDatabase Utils.TestDbConnectionString
+    do! Utils.cleanDatabase Utils.testDbConnectionString
 
     // act
     let newBook =
@@ -21,10 +21,10 @@ let ``it creates a book`` =
         (Utils.random5String () |> Some)
         (Utils.random5String () |> Some)
 
-    let! result = Sut.createBook Utils.TestDbConnectionString newBook
+    let! result = Sut.createBook Utils.testDbConnectionString newBook
 
     // assert
-    let savedBooks = App.Query.getBooks Utils.TestDbConnectionString
+    let savedBooks = App.Query.getBooks Utils.testDbConnectionString
 
     savedBooks |> hasLength "no book was saved" 1
 

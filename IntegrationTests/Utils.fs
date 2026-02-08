@@ -5,8 +5,7 @@ open System
 module ctx = App.Context
 
 [<Literal>]
-// TODO: rename to camelCase
-let TestDbConnectionString = "DataSource=" + __SOURCE_DIRECTORY__ + "/../ddl/dummy.db"
+let testDbConnectionString = "DataSource=" + __SOURCE_DIRECTORY__ + "/../ddl/dummy.db"
 
 let randomString (size: int) : string =
   let letters = [ 'a' .. 'z' ]
