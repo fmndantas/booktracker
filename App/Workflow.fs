@@ -13,7 +13,7 @@ let stringOptionIfEmpty = stringOption (fun s -> s.Length = 0)
 
 let stringOptionIfValue v = stringOption (fun s -> s = v)
 
-let createBook (connectionString: string) (bookFolder: string) : Async<Result<W.BookId, string list>> =
+let createBook (connectionString: string) (bookFolder: string) : Async<unit> =
   async {
     AnsiConsole.MarkupLine "Type [green]book[/] data!"
     let title = AnsiConsole.Ask<string> "[bold]Title[/]?"
@@ -36,5 +36,20 @@ let createBook (connectionString: string) (bookFolder: string) : Async<Result<W.
         (stringOptionIfEmpty mainTopic)
         (stringOptionIfValue noFilepath filepath)
 
-    return! Command.createBook connectionString newBook
+    let! result = Command.createBook connectionString newBook
+
+    match result with
+    | Ok _ -> sprintf "[green] Book was saved successfully![/]" |> AnsiConsole.MarkupLine
+    | Error es ->
+      let boldRed s = sprintf "[bold red] %s [/]" s
+
+      AnsiConsole.MarkupLine(boldRed "Some errors ocurred")
+
+      let errors =
+        es
+        |> List.map CommonTypes.appErrorToString
+        |> List.map boldRed
+        |> fun es -> String.Join('\n', es)
+
+      AnsiConsole.MarkupLine errors
   }

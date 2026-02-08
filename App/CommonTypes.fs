@@ -1,7 +1,8 @@
 module App.CommonTypes
 
+[<RequireQualifiedAccess>]
 type AppError = GenericError of string
 
 let appErrorToString appError =
   match appError with
-  | GenericError e -> e
+  | AppError.GenericError e -> e
