@@ -17,4 +17,4 @@ type SQL =
 let getReadContext (connectionSting: string) =
   SQL.GetReadOnlyDataContext connectionSting
 
-let getWriteContext (connectionString: string) = SQL.GetDataContext connectionString
+let getWriteContext (connectionString: string) = SQL.GetDataContext(connectionString)//.``Design Time Commands``.ClearDatabaseSchemaCache.

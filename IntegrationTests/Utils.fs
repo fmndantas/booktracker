@@ -2,6 +2,8 @@ module IntegrationTests.Utils
 
 open System
 
+open App.SqliteExtensions
+
 module ctx = App.Context
 
 [<Literal>]
@@ -29,7 +31,8 @@ let createRandomBook connectionString =
   async {
     let ctx = ctx.getWriteContext connectionString
 
-    let newBook = random5String () |> ctx.Main.Book.``Create(title)``
+    let now = DateTime.UtcNow.ToSqlite
+    let newBook = (now, random5String ()) |> ctx.Main.Book.``Create(modified, title)``
 
     do! ctx.SubmitUpdatesAsync() |> Async.AwaitTask
     return newBook

@@ -1,5 +1,7 @@
 module App.Query
 
+open SqliteExtensions
+
 module R = ReadDomain
 
 let getBooks (connectionString: string) : R.Book list =
@@ -12,5 +14,6 @@ let getBooks (connectionString: string) : R.Book list =
       b.Title
       (b.Author |> Option.ofValueOption)
       (b.MainTopic |> Option.ofValueOption)
-      (b.Filepath |> Option.ofValueOption))
+      (b.Filepath |> Option.ofValueOption)
+      b.Modified.FromSqlite)
   |> List.ofSeq

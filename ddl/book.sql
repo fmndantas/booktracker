@@ -3,5 +3,6 @@ create table book (
     title string not null,
     author string,
     main_topic string,
-    filepath string
+    filepath string,
+    modified string not null
 );

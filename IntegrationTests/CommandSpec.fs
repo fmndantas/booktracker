@@ -1,5 +1,7 @@
 module IntegrationTests.CommandSpec
 
+open System
+
 open Expecto
 open Expecto.Flip.Expect
 
@@ -13,14 +15,17 @@ let ``it creates a book`` =
     // arrange
     do! Utils.cleanDatabase Utils.testDbConnectionString
 
-    // act
+    let now = DateTime.UtcNow
+
     let newBook =
       W.createBook
         (Utils.random5String ())
         (Utils.random5String () |> Some)
         (Utils.random5String () |> Some)
         (Utils.random5String () |> Some)
+        now
 
+    // act
     let! result = Sut.createBook Utils.testDbConnectionString newBook
 
     // assert
@@ -38,6 +43,8 @@ let ``it creates a book`` =
             newBook.Author
             newBook.MainTopic
             newBook.Filepath
+            now
+
         let head = savedBooks.Head
         head |> equal "wrong book" expectedBook
   }

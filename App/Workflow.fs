@@ -35,6 +35,7 @@ let createBook (connectionString: string) (bookFolder: string) : Async<unit> =
         (stringOptionIfEmpty author)
         (stringOptionIfEmpty mainTopic)
         (stringOptionIfValue noFilepath filepath)
+        DateTime.UtcNow
 
     let! result = Command.createBook connectionString newBook
 
@@ -70,6 +71,6 @@ let getBooks (connectionString: string) : Async<unit> =
       |]
 
       values |> table.AddRow |> ignore)
-    
+
     AnsiConsole.Write table
   }

@@ -11,6 +11,7 @@ type Book = {
   Author: string option
   MainTopic: string option
   Filepath: string option
+  Modified: DateTime
 }
 
 type ReadingLog = {
@@ -28,6 +29,7 @@ let createBook
   (author: string option)
   (mainTopic: string option)
   (filepath: string option)
+  (modified: DateTime)
   : Book =
   {
     Id = id
@@ -35,6 +37,7 @@ let createBook
     Author = author
     MainTopic = mainTopic
     Filepath = filepath
+    Modified = modified
   }
 
 let createBookId v = BookId v
