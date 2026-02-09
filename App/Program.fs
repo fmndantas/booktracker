@@ -5,6 +5,9 @@ open App
 let bookFolder = "/home/fernando/books"
 let connectionString = "DataSource=" + __SOURCE_DIRECTORY__ + "/../booktracker.db"
 
+FSharp.Data.Sql.Common.QueryEvents.SqlQueryEvent
+|> Event.add (printfn "Executing SQL: %O")
+
 let writableDataContext = Context.getWriteContext connectionString
 let readonlyDataContext = Context.getReadContext connectionString
 
@@ -13,5 +16,13 @@ let createBook () =
 
 let getBooks () = Workflow.getBooks readonlyDataContext
 
-createBook () |> Async.RunSynchronously
-getBooks () |> Async.RunSynchronously
+let logReading () =
+  Workflow.logReading readonlyDataContext writableDataContext
+
+let getReadingLogsByBook () =
+  Workflow.getLastReadingLogsByBook readonlyDataContext
+
+// createBook () |> Async.RunSynchronously
+// getBooks () |> Async.RunSynchronously
+// logReading () |> Async.RunSynchronously
+// getReadingLogsByBook () |> Async.RunSynchronously

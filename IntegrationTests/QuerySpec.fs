@@ -1,7 +1,6 @@
 module IntegrationTests.QuerySpec
 
 open App
-// open App.ReadDomain
 
 open Expecto
 open Expecto.Flip.Expect
@@ -11,11 +10,11 @@ let ``it get books`` =
   <| async {
     // arrange
     do! Utils.cleanDatabase ()
-    let (w, r) = Utils.getTestDataContexts ()
+    let _, r = Utils.getTestDataContexts ()
     let! newBook = Utils.createRandomBook ()
 
     // act
-    let result = Query.getBooks r
+    let result = Query.getBooks r |> Seq.toList
 
     // assert
     result |> hasLength "wrong result length" 1

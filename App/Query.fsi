@@ -1,3 +1,6 @@
 module App.Query
 
-val getBooks: dataContext: Context.ReadDataContext -> Context.Book list
+open System.Linq
+
+val getBooks: dataContext: Context.ReadDataContext -> IQueryable<Context.Book>
+val getReadingLogs: dataContext: Context.ReadDataContext -> IQueryable<Context.ReadingLog>

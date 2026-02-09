@@ -24,3 +24,22 @@ let createBook
     do! dataContext.SubmitUpdatesAsync() |> Async.AwaitTask
     return Ok contextBook.Id
   }
+
+let logReading
+  (dataContext: Context.DataContext)
+  (bookId: BookId)
+  (initialPage: int)
+  (finalPage: int)
+  (nextTopic: string ValueOption)
+  (modified: DateTime)
+  : Async<Result<ReadingLogId, AppError list>> =
+  async {
+    let contextReadingLog = dataContext.Main.ReadingLog.Create()
+    contextReadingLog.IdBook <- bookId
+    contextReadingLog.InitialPage <- initialPage
+    contextReadingLog.FinalPage <- finalPage
+    contextReadingLog.NextTopic <- nextTopic
+    contextReadingLog.Modified <- modified.ToSqlite
+    do! dataContext.SubmitUpdatesAsync() |> Async.AwaitTask
+    return Ok contextReadingLog.Id
+  }

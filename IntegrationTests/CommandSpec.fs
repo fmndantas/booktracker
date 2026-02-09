@@ -23,7 +23,7 @@ let ``it creates a book`` =
       Sut.createBook w newBook.Title newBook.Author newBook.MainTopic newBook.Filepath newBook.Modified.FromSqlite
 
     // assert
-    let savedBooks = Query.getBooks r
+    let savedBooks = Query.getBooks r |> Seq.toList
 
     savedBooks |> hasLength "no book was saved" 1
 

@@ -1,3 +1,6 @@
 module App.Query
 
-let getBooks (dataContext: Context.ReadDataContext) : Context.Book list = dataContext.Main.Book |> Seq.toList
+open System.Linq
+
+let getBooks (dataContext: Context.ReadDataContext) : IQueryable<Context.Book> = dataContext.Main.Book
+let getReadingLogs (dataContext: Context.ReadDataContext) : IQueryable<Context.ReadingLog> = dataContext.Main.ReadingLog
