@@ -2,12 +2,21 @@ module IntegrationTests.Utils
 
 open System
 
+open App
 open App.SqliteExtensions
 
-module ctx = App.Context
-
 [<Literal>]
-let testDbConnectionString = "DataSource=" + __SOURCE_DIRECTORY__ + "/../ddl/dummy.db"
+let private testDbConnectionString =
+  "DataSource=" + __SOURCE_DIRECTORY__ + "/../ddl/dummy.db"
+
+let private getWriteDataContext () =
+  Context.getWriteContext testDbConnectionString
+
+let private getReadDataContext () =
+  Context.getReadContext testDbConnectionString
+
+let getTestDataContexts () =
+  getWriteDataContext (), getReadDataContext ()
 
 let randomString (size: int) : string =
   let letters = [ 'a' .. 'z' ]
@@ -19,21 +28,33 @@ let randomString (size: int) : string =
 
 let random5String () = randomString 5
 
-let cleanDatabase connectionString : Async<unit> =
+let cleanDatabase () : Async<unit> =
   async {
-    let ctx = ctx.getWriteContext connectionString
-    ctx.Main.ReadingLog |> Seq.iter _.Delete()
-    ctx.Main.Book |> Seq.iter _.Delete()
-    return! ctx.SubmitUpdatesAsync() |> Async.AwaitTask
+    let context = Context.getWriteContext testDbConnectionString
+    context.Main.ReadingLog |> Seq.iter _.Delete()
+    context.Main.Book |> Seq.iter _.Delete()
+    return! context.SubmitUpdatesAsync() |> Async.AwaitTask
   }
 
-let createRandomBook connectionString =
+let createRandomBook () =
   async {
-    let ctx = ctx.getWriteContext connectionString
+    let context = getWriteDataContext ()
 
     let now = DateTime.UtcNow.ToSqlite
-    let newBook = (now, random5String ()) |> ctx.Main.Book.``Create(modified, title)``
 
-    do! ctx.SubmitUpdatesAsync() |> Async.AwaitTask
+    let newBook =
+      (now, random5String ()) |> context.Main.Book.``Create(modified, title)``
+
+    do! context.SubmitUpdatesAsync() |> Async.AwaitTask
     return newBook
   }
+
+let createRandomBookEntity () : Context.Book =
+  let context = getWriteDataContext ()
+  let book = context.Main.Book.Create()
+  book.Title <- random5String ()
+  book.Author <- random5String () |> ValueSome
+  book.MainTopic <- random5String () |> ValueSome
+  book.Filepath <- random5String () |> ValueSome
+  book.Modified <- DateTime.UtcNow.ToSqlite
+  book

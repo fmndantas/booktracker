@@ -2,8 +2,5 @@ module App.Workflow
 
 open System
 
-module R = ReadDomain
-module W = WriteDomain
-
-val createBook: connectionString: string -> bookFolder: string -> Async<unit>
-val getBooks: connectionString: string -> Async<unit>
+val createBook: dataContext: Context.DataContext -> bookFolder: string -> Async<unit>
+val getBooks: dataContext: Context.ReadDataContext -> Async<unit>

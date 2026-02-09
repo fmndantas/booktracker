@@ -1,19 +1,3 @@
 module App.Query
 
-open SqliteExtensions
-
-module R = ReadDomain
-
-let getBooks (connectionString: string) : R.Book list =
-  let ctx = Context.getReadContext connectionString
-
-  ctx.Main.Book
-  |> Seq.map (fun b ->
-    R.createBook
-      (R.createBookId b.Id)
-      b.Title
-      (b.Author |> Option.ofValueOption)
-      (b.MainTopic |> Option.ofValueOption)
-      (b.Filepath |> Option.ofValueOption)
-      b.Modified.FromSqlite)
-  |> List.ofSeq
+let getBooks (dataContext: Context.ReadDataContext) : Context.Book list = dataContext.Main.Book |> Seq.toList

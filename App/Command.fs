@@ -4,19 +4,23 @@ open System
 
 open SqliteExtensions
 
-module W = WriteDomain
-
 open App.CommonTypes
 
-let createBook (connectionString: string) (book: W.Book) : Async<Result<WriteDomain.BookId, AppError list>> =
+let createBook
+  (dataContext: Context.DataContext)
+  (title: string)
+  (author: string ValueOption)
+  (mainTopic: string ValueOption)
+  (filepath: string ValueOption)
+  (modified: DateTime)
+  : Async<Result<BookId, AppError list>> =
   async {
-    let context = Context.getWriteContext connectionString
-    let contextBook = context.Main.Book.Create()
-    contextBook.Title <- book.Title
-    contextBook.Author <- book.Author |> ValueOption.ofOption
-    contextBook.MainTopic <- book.MainTopic |> ValueOption.ofOption
-    contextBook.Filepath <- book.Filepath |> ValueOption.ofOption
-    contextBook.Modified <- book.Modified.ToSqlite
-    do! context.SubmitUpdatesAsync() |> Async.AwaitTask
-    return contextBook.Id |> W.createBookId |> Ok
+    let contextBook: Context.Book = dataContext.Main.Book.Create()
+    contextBook.Title <- title
+    contextBook.Author <- author
+    contextBook.MainTopic <- mainTopic
+    contextBook.Filepath <- filepath
+    contextBook.Modified <- modified.ToSqlite
+    do! dataContext.SubmitUpdatesAsync() |> Async.AwaitTask
+    return Ok contextBook.Id
   }

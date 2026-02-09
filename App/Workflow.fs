@@ -4,16 +4,14 @@ open System
 
 open Spectre.Console
 
-module W = WriteDomain
-
-let stringOption (evaluateAsNone: string -> bool) (s: string) : string option =
-  if evaluateAsNone s then None else Some s
+let stringOption (evaluateAsNone: string -> bool) (s: string) : string ValueOption =
+  if evaluateAsNone s then ValueNone else ValueSome s
 
 let stringOptionIfEmpty = stringOption (fun s -> s.Length = 0)
 
 let stringOptionIfValue v = stringOption (fun s -> s = v)
 
-let createBook (connectionString: string) (bookFolder: string) : Async<unit> =
+let createBook (dataContext: Context.DataContext) (bookFolder: string) : Async<unit> =
   async {
     AnsiConsole.MarkupLine "Type [green]book[/] data!"
     let title = AnsiConsole.Ask<string> "[bold]Title[/]?"
@@ -29,15 +27,14 @@ let createBook (connectionString: string) (bookFolder: string) : Async<unit> =
     let filepath =
       AnsiConsole.Prompt(SelectionPrompt<string>().Title("[bold]File path[/]").AddChoices(files).EnableSearch())
 
-    let newBook =
-      W.createBook
+    let! result =
+      Command.createBook
+        dataContext
         title
         (stringOptionIfEmpty author)
         (stringOptionIfEmpty mainTopic)
         (stringOptionIfValue noFilepath filepath)
         DateTime.UtcNow
-
-    let! result = Command.createBook connectionString newBook
 
     match result with
     | Ok _ -> sprintf "[green] Book was saved successfully![/]" |> AnsiConsole.MarkupLine
@@ -55,9 +52,9 @@ let createBook (connectionString: string) (bookFolder: string) : Async<unit> =
       AnsiConsole.MarkupLine errors
   }
 
-let getBooks (connectionString: string) : Async<unit> =
+let getBooks (dataContext: Context.ReadDataContext) : Async<unit> =
   async {
-    let books = Query.getBooks connectionString
+    let books = Query.getBooks dataContext
 
     let table = Table().AddColumns("Title", "Author", "Main topic", "Filepath")
 
@@ -65,9 +62,9 @@ let getBooks (connectionString: string) : Async<unit> =
     |> List.iter (fun b ->
       let values = [|
         b.Title
-        b.Author |> Option.defaultValue "_"
-        b.MainTopic |> Option.defaultValue "-"
-        b.Filepath |> Option.defaultValue "-"
+        b.Author |> ValueOption.defaultValue "-"
+        b.MainTopic |> ValueOption.defaultValue "-"
+        b.Filepath |> ValueOption.defaultValue "-"
       |]
 
       values |> table.AddRow |> ignore)

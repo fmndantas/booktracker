@@ -1,3 +1,3 @@
 module App.Query
 
-val getBooks: connectionString: string -> ReadDomain.Book list
+val getBooks: dataContext: Context.ReadDataContext -> Context.Book list

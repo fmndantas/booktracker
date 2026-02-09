@@ -3,7 +3,8 @@ module App.Context
 open FSharp.Data.Sql
 
 [<Literal>]
-let dummyDbConnectionString = "DataSource=" + __SOURCE_DIRECTORY__ + "/../ddl/dummy.db"
+let dummyDbConnectionString =
+  "DataSource=" + __SOURCE_DIRECTORY__ + "/../ddl/dummy.db"
 
 type SQL =
   SQLite.SqlDataProvider<
@@ -14,7 +15,12 @@ type SQL =
     UseOptionTypes=Common.NullableColumnType.VALUE_OPTION
    >
 
-let getReadContext (connectionSting: string) =
+type DataContext = SQL.dataContext
+type ReadDataContext = SQL.readDataContext
+
+type Book = DataContext.``main.bookEntity``
+
+let getReadContext (connectionSting: string) : ReadDataContext =
   SQL.GetReadOnlyDataContext connectionSting
 
-let getWriteContext (connectionString: string) = SQL.GetDataContext(connectionString)//.``Design Time Commands``.ClearDatabaseSchemaCache.
+let getWriteContext (connectionString: string) : DataContext = SQL.GetDataContext connectionString

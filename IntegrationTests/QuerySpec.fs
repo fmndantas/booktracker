@@ -1,22 +1,21 @@
 module IntegrationTests.QuerySpec
 
-open App.ReadDomain
+open App
+// open App.ReadDomain
 
 open Expecto
 open Expecto.Flip.Expect
-
-module Ctx = App.Context
-module Sut = App.Query
 
 let ``it get books`` =
   testCaseAsync "it get books"
   <| async {
     // arrange
-    do! Utils.cleanDatabase Utils.testDbConnectionString
-    let! newBook = Utils.createRandomBook Utils.testDbConnectionString
+    do! Utils.cleanDatabase ()
+    let (w, r) = Utils.getTestDataContexts ()
+    let! newBook = Utils.createRandomBook ()
 
     // act
-    let result = Sut.getBooks Utils.testDbConnectionString
+    let result = Query.getBooks r
 
     // assert
     result |> hasLength "wrong result length" 1
