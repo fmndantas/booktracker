@@ -125,37 +125,40 @@ let getLastReadingLogsByBook (readDataContext: Context.ReadDataContext) : Async<
       }
       |> Seq.toList
 
-    let bookId =
-      AnsiConsole.Prompt(
-        SelectionPrompt<int64 * string>()
-          .Title("[bold]What book?[/]")
-          .UseConverter(snd)
-          .AddChoices(books)
-          .EnableSearch()
-      )
-      |> fst
+    if List.isEmpty books then
+      AnsiConsole.MarkupLine "You don't have any book saved. Please, [bold]create a book[/]"
+    else
+      let bookId =
+        AnsiConsole.Prompt(
+          SelectionPrompt<int64 * string>()
+            .Title("[bold]What book?[/]")
+            .UseConverter(snd)
+            .AddChoices(books)
+            .EnableSearch()
+        )
+        |> fst
 
-    let readingLogs =
-      query {
-        for readingLog in readDataContext |> Query.getReadingLogs do
-          where (readingLog.IdBook = bookId)
-          sortByDescending readingLog.Modified
-          select readingLog
-      }
-      |> Seq.toList
+      let readingLogs =
+        query {
+          for readingLog in readDataContext |> Query.getReadingLogs do
+            where (readingLog.IdBook = bookId)
+            sortByDescending readingLog.Read
+            select readingLog
+        }
+        |> Seq.toList
 
-    let table = Table().AddColumns("Initial page", "Final page", "Next topic", "When")
+      let table = Table().AddColumns("Initial page", "Final page", "Next topic", "When")
 
-    readingLogs
-    |> List.iter (fun b ->
-      let values = [|
-        b.InitialPage.ToString()
-        b.FinalPage.ToString()
-        b.NextTopic |> ValueOption.defaultValue "-"
-        b.Modified
-      |]
+      readingLogs
+      |> List.iter (fun b ->
+        let values = [|
+          b.InitialPage.ToString()
+          b.FinalPage.ToString()
+          b.NextTopic |> ValueOption.defaultValue "-"
+          b.Modified
+        |]
 
-      values |> table.AddRow |> ignore)
+        values |> table.AddRow |> ignore)
 
-    AnsiConsole.Write table
+      AnsiConsole.Write table
   }
