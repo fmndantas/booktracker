@@ -28,6 +28,8 @@ let randomString (size: int) : string =
 
 let random5String () = randomString 5
 
+let randomInt a b = Random().Next(a, b)
+
 let cleanDatabase () : Async<unit> =
   async {
     let context = Context.getWriteContext testDbConnectionString
@@ -58,3 +60,13 @@ let createRandomBookEntity () : Context.Book =
   book.Filepath <- random5String () |> ValueSome
   book.Modified <- DateTime.UtcNow.ToSqlite
   book
+
+let createRandomReadingLogEntity () : Context.ReadingLog =
+  let context = getWriteDataContext ()
+  let readingLog = context.Main.ReadingLog.Create()
+  readingLog.IdBook <- randomInt 1 1000
+  readingLog.InitialPage <- randomInt 1 100
+  readingLog.FinalPage <- randomInt 1 100
+  readingLog.NextTopic <- random5String () |> ValueSome
+  readingLog.Modified <- DateTime.UtcNow.ToSqlite
+  readingLog

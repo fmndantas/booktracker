@@ -34,12 +34,21 @@ let logReading
   (modified: DateTime)
   : Async<Result<ReadingLogId, AppError list>> =
   async {
-    let contextReadingLog = dataContext.Main.ReadingLog.Create()
-    contextReadingLog.IdBook <- bookId
-    contextReadingLog.InitialPage <- initialPage
-    contextReadingLog.FinalPage <- finalPage
-    contextReadingLog.NextTopic <- nextTopic
-    contextReadingLog.Modified <- modified.ToSqlite
-    do! dataContext.SubmitUpdatesAsync() |> Async.AwaitTask
-    return Ok contextReadingLog.Id
+    let bookExists =
+      query {
+        for book in dataContext.Main.Book do
+          exists (book.Id = bookId)
+      }
+
+    if bookExists then
+      let contextReadingLog = dataContext.Main.ReadingLog.Create()
+      contextReadingLog.IdBook <- bookId
+      contextReadingLog.InitialPage <- initialPage
+      contextReadingLog.FinalPage <- finalPage
+      contextReadingLog.NextTopic <- nextTopic
+      contextReadingLog.Modified <- modified.ToSqlite
+      do! dataContext.SubmitUpdatesAsync() |> Async.AwaitTask
+      return Ok contextReadingLog.Id
+    else
+      return Error [ AppError.BusinessError "Log points to inexistent book" ]
   }

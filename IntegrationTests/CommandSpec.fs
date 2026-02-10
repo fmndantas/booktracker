@@ -1,7 +1,5 @@
 module IntegrationTests.CommandSpec
 
-open System
-
 open Expecto
 open Expecto.Flip.Expect
 
@@ -37,5 +35,30 @@ let ``it creates a book`` =
         actual |> equal "wrong book" expected
   }
 
+let ``it returns error if a log is created with a book that does not exists`` =
+  testCaseAsync "it returns error if a log is created with a book that does not exists"
+  <| async {
+    do! Utils.cleanDatabase ()
+    let w, _ = Utils.getTestDataContexts ()
+    let newReadingLog: Context.ReadingLog = Utils.createRandomReadingLogEntity ()
+
+    let! result =
+      Sut.logReading
+        w
+        1000L
+        (int newReadingLog.InitialPage)
+        (int newReadingLog.FinalPage)
+        newReadingLog.NextTopic
+        newReadingLog.Modified.FromSqlite
+
+    result
+    |> wantError "result should be an error"
+    |> contains "does not have expected error" (CommonTypes.AppError.BusinessError "Log points to inexistent book")
+  }
+
 [<Tests>]
-let commandSpec = testList "command" [ ``it creates a book`` ]
+let commandSpec =
+  testList "command" [
+    ``it creates a book``
+    ``it returns error if a log is created with a book that does not exists``
+  ]
