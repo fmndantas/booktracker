@@ -3,7 +3,8 @@ create table reading_log (
     id_book integer not null,
     initial_page integer not null,
     final_page integer not null,
-    next_topic string,
+    read string not null,
     modified string not null,
+    next_topic string,
     FOREIGN KEY(id_book) REFERENCES book(id)
 );

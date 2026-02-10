@@ -31,7 +31,7 @@ let logReading
   (initialPage: int)
   (finalPage: int)
   (nextTopic: string ValueOption)
-  (modified: DateTime)
+  (now: DateTime)
   : Async<Result<ReadingLogId, AppError list>> =
   async {
     let bookExists =
@@ -46,7 +46,8 @@ let logReading
       contextReadingLog.InitialPage <- initialPage
       contextReadingLog.FinalPage <- finalPage
       contextReadingLog.NextTopic <- nextTopic
-      contextReadingLog.Modified <- modified.ToSqlite
+      contextReadingLog.Read <- now.ToSqlite
+      contextReadingLog.Modified <- now.ToSqlite
       do! dataContext.SubmitUpdatesAsync() |> Async.AwaitTask
       return Ok contextReadingLog.Id
     else

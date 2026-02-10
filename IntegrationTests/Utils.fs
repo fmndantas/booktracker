@@ -68,5 +68,4 @@ let createRandomReadingLogEntity () : Context.ReadingLog =
   readingLog.InitialPage <- randomInt 1 100
   readingLog.FinalPage <- randomInt 1 100
   readingLog.NextTopic <- random5String () |> ValueSome
-  readingLog.Modified <- DateTime.UtcNow.ToSqlite
   readingLog

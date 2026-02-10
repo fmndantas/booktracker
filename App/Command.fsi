@@ -19,5 +19,5 @@ val logReading:
     initialPage: int ->
     finalPage: int ->
     nextTopic: string ValueOption ->
-    modified: DateTime ->
+    now: DateTime ->
         Async<Result<ReadingLogId, AppError list>>

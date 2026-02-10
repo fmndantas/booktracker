@@ -24,4 +24,4 @@ type ReadingLog = DataContext.``main.reading_logEntity``
 let getReadContext (connectionSting: string) : ReadDataContext =
   SQL.GetReadOnlyDataContext connectionSting
 
-let getWriteContext (connectionString: string) : DataContext = SQL.GetDataContext connectionString
+let getWriteContext (connectionString: string) : DataContext = SQL.GetDataContext(connectionString)
