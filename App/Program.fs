@@ -10,8 +10,8 @@ let connectionString = "DataSource=" + __SOURCE_DIRECTORY__ + "/../booktracker.d
 // FSharp.Data.Sql.Common.QueryEvents.SqlQueryEvent
 // |> Event.add (printfn "Executing SQL: %O")
 
-let writableDataContext = Context.getWriteContext connectionString
-let readonlyDataContext = Context.getReadContext connectionString
+let wdc = Context.getWriteContext connectionString
+let rdc = Context.getReadContext connectionString
 
 let parser = ArgumentParser.Create<Parser.Arguments>(programName = "booktracker")
 
@@ -20,11 +20,21 @@ let main argv =
   let result = parser.ParseCommandLine argv
 
   if result.Contains Parser.Arguments.Get_Books then
-    readonlyDataContext |> Workflow.getBooks |> Async.RunSynchronously
+    rdc |> Workflow.getBooks |> Async.RunSynchronously
 
   if result.Contains Parser.Arguments.Get_Logs_By_Book then
-    readonlyDataContext
+    rdc
     |> Workflow.getLastReadingLogsByBook
+    |> Async.RunSynchronously
+
+  if result.Contains Parser.Arguments.Create_Book then
+    (wdc,bookFolder)
+    ||> Workflow.createBook
+    |> Async.RunSynchronously
+
+  if result.Contains Parser.Arguments.Log_Reading then
+    (rdc, wdc)
+    ||> Workflow.logReading
     |> Async.RunSynchronously
 
   0
