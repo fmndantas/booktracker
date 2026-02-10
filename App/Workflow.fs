@@ -39,7 +39,7 @@ let createBook (dataContext: Context.DataContext) (bookFolder: string) : Async<u
     match result with
     | Ok _ -> sprintf "[green] Book was saved successfully![/]" |> AnsiConsole.MarkupLine
     | Error es ->
-      let boldRed s = sprintf "[bold red] %s [/]" s
+      let boldRed s = sprintf "[bold red] - %s [/]" s
 
       AnsiConsole.MarkupLine(boldRed "Some errors ocurred")
 
@@ -103,7 +103,7 @@ let logReading (readDataContext: Context.ReadDataContext) (dataContext: Context.
     match result with
     | Ok _ -> sprintf "[green] Reading log was saved![/]" |> AnsiConsole.MarkupLine
     | Error es ->
-      let boldRed s = sprintf "[bold red] %s [/]" s
+      let boldRed s = sprintf "[bold red] - %s [/]" s
 
       AnsiConsole.MarkupLine(boldRed "Some errors ocurred")
 

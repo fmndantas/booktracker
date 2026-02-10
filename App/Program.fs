@@ -21,8 +21,3 @@ let logReading () =
 
 let getReadingLogsByBook () =
   Workflow.getLastReadingLogsByBook readonlyDataContext
-
-// createBook () |> Async.RunSynchronously
-// getBooks () |> Async.RunSynchronously
-// logReading () |> Async.RunSynchronously
-// getReadingLogsByBook () |> Async.RunSynchronously
