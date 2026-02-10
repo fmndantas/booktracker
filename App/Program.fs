@@ -1,23 +1,30 @@
 ﻿// For more information see https://aka.ms/fsharp-console-apps
+open Argu
+
 open App
 
 // TODO: parametrize
 let bookFolder = "/home/fernando/books"
 let connectionString = "DataSource=" + __SOURCE_DIRECTORY__ + "/../booktracker.db"
 
-FSharp.Data.Sql.Common.QueryEvents.SqlQueryEvent
-|> Event.add (printfn "Executing SQL: %O")
+// FSharp.Data.Sql.Common.QueryEvents.SqlQueryEvent
+// |> Event.add (printfn "Executing SQL: %O")
 
 let writableDataContext = Context.getWriteContext connectionString
 let readonlyDataContext = Context.getReadContext connectionString
 
-let createBook () =
-  Workflow.createBook writableDataContext bookFolder
+let parser = ArgumentParser.Create<Parser.Arguments>(programName = "booktracker")
 
-let getBooks () = Workflow.getBooks readonlyDataContext
+[<EntryPoint>]
+let main argv =
+  let result = parser.ParseCommandLine argv
 
-let logReading () =
-  Workflow.logReading readonlyDataContext writableDataContext
+  if result.Contains Parser.Arguments.Get_Books then
+    readonlyDataContext |> Workflow.getBooks |> Async.RunSynchronously
 
-let getReadingLogsByBook () =
-  Workflow.getLastReadingLogsByBook readonlyDataContext
+  if result.Contains Parser.Arguments.Get_Logs_By_Book then
+    readonlyDataContext
+    |> Workflow.getLastReadingLogsByBook
+    |> Async.RunSynchronously
+
+  0
