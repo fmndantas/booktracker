@@ -5,7 +5,7 @@ open App
 open Expecto
 open Expecto.Flip.Expect
 
-let ``it get books`` =
+let ``it gets books`` =
   testCaseAsync "it get books"
   <| async {
     // arrange
@@ -23,4 +23,4 @@ let ``it get books`` =
   }
 
 [<Tests>]
-let querySpec = testList "query" [ ``it get books`` ]
+let querySpec = testList "query" [ ``it gets books`` ]
