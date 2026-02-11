@@ -11,16 +11,17 @@ open App.SqliteExtensions
 module Sut = Command
 
 let ``it creates a book`` =
-  testCaseAsync "it create a book"
+  testCaseAsync "it creates a book"
   <| async {
     // arrange
-    do! Utils.cleanDatabase ()
     let w, r = Utils.getTestDataContexts ()
-    let newBook = Utils.createRandomBookEntity ()
+    do! Utils.cleanDatabase w
+
+    let title, author, mainTopic, filepath, now =
+      Utils.random5String (), Utils.random5String (), Utils.random5String (), Utils.random5String (), DateTime.UtcNow
 
     // act
-    let! result =
-      Sut.createBook w newBook.Title newBook.Author newBook.MainTopic newBook.Filepath newBook.Modified.FromSqlite
+    let! result = Sut.createBook w title (ValueSome author) (ValueSome mainTopic) (ValueSome filepath) now
 
     // assert
     let savedBooks = Query.getBooks r |> Seq.toList
@@ -31,9 +32,8 @@ let ``it creates a book`` =
     |> wantOk "result is not ok"
     |> fun savedBookId ->
         let head = savedBooks.Head
-        newBook.Id <- savedBookId
         let actual = head.Id, head.Title, head.Author, head.Filepath, head.Modified
-        let expected = newBook.Id, head.Title, head.Author, head.Filepath, head.Modified
+        let expected = savedBookId, head.Title, head.Author, head.Filepath, head.Modified
         actual |> equal "wrong book" expected
   }
 
@@ -41,20 +41,9 @@ let ``it logs reading for a book`` =
   testCaseAsync "it logs reading for a book"
   <| async {
     // arrange
-    do! Utils.cleanDatabase ()
     let w, r = Utils.getTestDataContexts ()
-    let newBook = Utils.createRandomBookEntity ()
-
-    let! bookResult =
-      Sut.createBook w newBook.Title newBook.Author newBook.MainTopic newBook.Filepath newBook.Modified.FromSqlite
-
-    let bookId =
-      match bookResult with
-      | Ok v -> v
-      | Error _ -> failtest "book could not be saved"
-
-    let newReadingLog = Utils.createRandomReadingLogEntity ()
-    newReadingLog.IdBook <- bookId
+    do! Utils.cleanDatabase w
+    let! newBook = Utils.createRandomBook w
 
     let now = DateTime.UtcNow
 
@@ -62,41 +51,36 @@ let ``it logs reading for a book`` =
     let! result =
       Sut.logReading
         w
-        newReadingLog.IdBook
-        (int newReadingLog.InitialPage)
-        (int newReadingLog.FinalPage)
-        newReadingLog.NextTopic
+        newBook.Id
+        (Utils.randomInt1_10 ())
+        (Utils.randomInt1_10 ())
+        (Utils.random5String () |> ValueSome)
         now
 
     // assert
     let readingLogs = Query.getReadingLogs r |> Seq.toList
-    readingLogs |> hasLength "no book was saved" 1
+    readingLogs |> hasLength "no reading log was saved" 1
 
     result
     |> wantOk "result should be ok"
     |> fun savedReadingLog ->
-        let expected = readingLogs.Head.ColumnValues |> List.ofSeq |> List.sortBy fst
-        newReadingLog.Id <- savedReadingLog
-        newReadingLog.Read <- now.ToSqlite
-        newReadingLog.Modified <- now.ToSqlite
-        let actual = newReadingLog.ColumnValues |> List.ofSeq |> List.sortBy fst
-        actual |> equal "objects are different" expected
+        let expected = readingLogs.Head
+        savedReadingLog |> equal "objects are different" expected.Id
   }
 
 let ``it returns error if a log is created with a book that does not exists`` =
   testCaseAsync "it returns error if a log is created with a book that does not exists"
   <| async {
-    do! Utils.cleanDatabase ()
     let w, _ = Utils.getTestDataContexts ()
-    let newReadingLog = Utils.createRandomReadingLogEntity ()
+    do! Utils.cleanDatabase w
 
     let! result =
       Sut.logReading
         w
         1000L
-        (int newReadingLog.InitialPage)
-        (int newReadingLog.FinalPage)
-        newReadingLog.NextTopic
+        (Utils.randomInt1_10 ())
+        (Utils.randomInt1_10 ())
+        (Utils.random5String () |> ValueSome)
         DateTime.UtcNow
 
     result

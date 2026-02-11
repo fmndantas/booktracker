@@ -1,8 +1,11 @@
 module App.Workflow
 
 open System
+open System.Diagnostics
 
 open Spectre.Console
+
+open CommonTypes
 
 let stringOption (evaluateAsNone: string -> bool) (s: string) : string ValueOption =
   if evaluateAsNone s then ValueNone else ValueSome s
@@ -24,6 +27,40 @@ let showErrors (es: CommonTypes.AppError list) =
 
   AnsiConsole.MarkupLine(boldRed "Some errors ocurred:")
   AnsiConsole.MarkupLine errorItems
+
+let selectBook (readDataContext: Context.ReadDataContext) : Result<BookId, AppError list> =
+  let books =
+    query {
+      for book in readDataContext |> Query.getBooks do
+        select (book.Id, book.Title)
+    }
+    |> Seq.toList
+
+  if books.Length = 0 then
+    Error[AppError.BusinessError "You don't have any book saved"]
+  else
+    AnsiConsole.Prompt(
+      SelectionPrompt<int64 * string>().Title("[bold]Select book[/]").UseConverter(snd).AddChoices(books).EnableSearch()
+    )
+    |> fst
+    |> Ok
+
+let selectHook (readDataContext: Context.ReadDataContext) : Result<HookId, AppError list> =
+  let hooks =
+    query {
+      for hook in readDataContext.Main.Hook do
+        select (hook.Id, hook.Name)
+    }
+    |> Seq.toList
+
+  if hooks.Length = 0 then
+    Error[AppError.BusinessError "You don't have any hook saved"]
+  else
+    AnsiConsole.Prompt(
+      SelectionPrompt<int64 * string>().Title("[bold]Select hook[/]").UseConverter(snd).AddChoices(hooks).EnableSearch()
+    )
+    |> fst
+    |> Ok
 
 let createBook (dataContext: Context.DataContext) (bookFolder: string) : Async<unit> =
   async {
@@ -75,6 +112,7 @@ let getBooks (dataContext: Context.ReadDataContext) : Async<unit> =
     AnsiConsole.Write table
   }
 
+// TODO: use selectBook
 let logReading (readDataContext: Context.ReadDataContext) (dataContext: Context.DataContext) : Async<unit> =
   async {
     let books =
@@ -108,6 +146,7 @@ let logReading (readDataContext: Context.ReadDataContext) (dataContext: Context.
     | Error es -> showErrors es
   }
 
+// TODO: use selectBook
 let getLastReadingLogsByBook (readDataContext: Context.ReadDataContext) : Async<unit> =
   async {
     let books =
@@ -153,4 +192,28 @@ let getLastReadingLogsByBook (readDataContext: Context.ReadDataContext) : Async<
         values |> table.AddRow |> ignore)
 
       AnsiConsole.Write table
+  }
+
+let continueLastReading (readDataContext: Context.ReadDataContext) : Async<unit> =
+  async {
+    let commandResult =
+      result {
+        let! hookId = selectHook readDataContext
+        let! bookId = selectBook readDataContext
+
+        let! readingLogId =
+          match Query.getLastReadingLogByBook readDataContext (Some bookId) with
+          | Some readingLog -> readingLog.Id |> Ok
+          | None -> Error[AppError.BusinessError "Book does not have log entries yet"]
+
+        return! Query.getHookCommandByReadingLog readDataContext hookId readingLogId
+      }
+
+    match commandResult with
+    | Ok command ->
+      let processInfo = ProcessStartInfo(fst command, snd command)
+      processInfo.UseShellExecute <- false
+      let _ = Process.Start processInfo
+      ()
+    | Error es -> showErrors es
   }

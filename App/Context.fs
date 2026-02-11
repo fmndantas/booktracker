@@ -20,6 +20,7 @@ type ReadDataContext = SQL.readDataContext
 
 type Book = DataContext.``main.bookEntity``
 type ReadingLog = DataContext.``main.reading_logEntity``
+type Hook = DataContext.``main.hookEntity``
 
 let getReadContext (connectionSting: string) : ReadDataContext =
   SQL.GetReadOnlyDataContext connectionSting

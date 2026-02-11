@@ -30,42 +30,24 @@ let random5String () = randomString 5
 
 let randomInt a b = Random().Next(a, b)
 
-let cleanDatabase () : Async<unit> =
+let randomInt1_10 () = randomInt 1 10
+
+let cleanDatabase (context: Context.DataContext) : Async<unit> =
   async {
-    let context = Context.getWriteContext testDbConnectionString
     context.Main.ReadingLog |> Seq.iter _.Delete()
     context.Main.Book |> Seq.iter _.Delete()
+    context.Main.Hook |> Seq.iter _.Delete()
     return! context.SubmitUpdatesAsync() |> Async.AwaitTask
   }
 
-let createRandomBook () =
+let createRandomBook (context: Context.DataContext) =
   async {
-    let context = getWriteDataContext ()
-
-    let now = DateTime.UtcNow.ToSqlite
-
-    let newBook =
-      (now, random5String ()) |> context.Main.Book.``Create(modified, title)``
-
+    let book = context.Main.Book.Create()
+    book.Title <- random5String ()
+    book.Author <- random5String () |> ValueSome
+    book.MainTopic <- random5String () |> ValueSome
+    book.Filepath <- random5String () |> ValueSome
+    book.Modified <- DateTime.UtcNow.ToSqlite
     do! context.SubmitUpdatesAsync() |> Async.AwaitTask
-    return newBook
+    return book
   }
-
-let createRandomBookEntity () : Context.Book =
-  let context = getWriteDataContext ()
-  let book = context.Main.Book.Create()
-  book.Title <- random5String ()
-  book.Author <- random5String () |> ValueSome
-  book.MainTopic <- random5String () |> ValueSome
-  book.Filepath <- random5String () |> ValueSome
-  book.Modified <- DateTime.UtcNow.ToSqlite
-  book
-
-let createRandomReadingLogEntity () : Context.ReadingLog =
-  let context = getWriteDataContext ()
-  let readingLog = context.Main.ReadingLog.Create()
-  readingLog.IdBook <- randomInt 1 1000
-  readingLog.InitialPage <- randomInt 1 100
-  readingLog.FinalPage <- randomInt 1 100
-  readingLog.NextTopic <- random5String () |> ValueSome
-  readingLog

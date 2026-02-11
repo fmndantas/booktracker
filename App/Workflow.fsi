@@ -5,3 +5,4 @@ val getBooks: dataContext: Context.ReadDataContext -> Async<unit>
 
 val logReading: readDataContext: Context.ReadDataContext -> dataContext: Context.DataContext -> Async<unit>
 val getLastReadingLogsByBook: readDataContext: Context.ReadDataContext -> Async<unit>
+val continueLastReading: readDataContext: Context.ReadDataContext -> Async<unit>

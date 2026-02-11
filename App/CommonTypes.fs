@@ -2,6 +2,8 @@ module App.CommonTypes
 
 type BookId = int64
 type ReadingLogId = int64
+type HookId = int64
+type HookCommand = string
 
 [<RequireQualifiedAccess>]
 type AppError =

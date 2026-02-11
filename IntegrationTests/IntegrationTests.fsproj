@@ -14,6 +14,7 @@
     <Compile Include="Utils.fs" />
     <Compile Include="QuerySpec.fs" />
     <Compile Include="CommandSpec.fs" />
+    <Compile Include="HookSpec.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 

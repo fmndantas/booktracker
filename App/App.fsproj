@@ -6,9 +6,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="ResultOperators.fs" />
     <Compile Include="SqliteExtensions.fs" />
     <Compile Include="CommonTypes.fs" />
     <Compile Include="Context.fs" />
+    <Compile Include="Hook.fsi" />
+    <Compile Include="Hook.fs" />
     <Compile Include="Query.fsi" />
     <Compile Include="Query.fs" />
     <Compile Include="Command.fsi" />
