@@ -11,6 +11,20 @@ let stringOptionIfEmpty = stringOption (fun s -> s.Length = 0)
 
 let stringOptionIfValue v = stringOption (fun s -> s = v)
 
+let boldRed s = sprintf "[bold red]%s[/]" s
+
+let item s = sprintf "\u2022 %s" s
+
+let showErrors (es: CommonTypes.AppError list) =
+  let errorItems =
+    es
+    |> List.map CommonTypes.appErrorToString
+    |> List.map (boldRed >> item)
+    |> fun es -> String.Join('\n', es)
+
+  AnsiConsole.MarkupLine(boldRed "Some errors ocurred:")
+  AnsiConsole.MarkupLine errorItems
+
 let createBook (dataContext: Context.DataContext) (bookFolder: string) : Async<unit> =
   async {
     AnsiConsole.MarkupLine "Type [green]book[/] data!"
@@ -38,18 +52,7 @@ let createBook (dataContext: Context.DataContext) (bookFolder: string) : Async<u
 
     match result with
     | Ok _ -> sprintf "[green] Book was saved successfully![/]" |> AnsiConsole.MarkupLine
-    | Error es ->
-      let boldRed s = sprintf "[bold red] - %s [/]" s
-
-      AnsiConsole.MarkupLine(boldRed "Some errors ocurred")
-
-      let errors =
-        es
-        |> List.map CommonTypes.appErrorToString
-        |> List.map boldRed
-        |> fun es -> String.Join('\n', es)
-
-      AnsiConsole.MarkupLine errors
+    | Error es -> showErrors es
   }
 
 let getBooks (dataContext: Context.ReadDataContext) : Async<unit> =
@@ -102,18 +105,7 @@ let logReading (readDataContext: Context.ReadDataContext) (dataContext: Context.
 
     match result with
     | Ok _ -> sprintf "[green] Reading log was saved![/]" |> AnsiConsole.MarkupLine
-    | Error es ->
-      let boldRed s = sprintf "[bold red] - %s [/]" s
-
-      AnsiConsole.MarkupLine(boldRed "Some errors ocurred")
-
-      let errors =
-        es
-        |> List.map CommonTypes.appErrorToString
-        |> List.map boldRed
-        |> fun es -> String.Join('\n', es)
-
-      AnsiConsole.MarkupLine errors
+    | Error es -> showErrors es
   }
 
 let getLastReadingLogsByBook (readDataContext: Context.ReadDataContext) : Async<unit> =
