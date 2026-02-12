@@ -112,37 +112,24 @@ let getBooks (dataContext: Context.ReadDataContext) : Async<unit> =
     AnsiConsole.Write table
   }
 
-// TODO: use selectBook
+// TODO: needs AsyncResult
 let logReading (readDataContext: Context.ReadDataContext) (dataContext: Context.DataContext) : Async<unit> =
   async {
-    let books =
-      query {
-        for book in readDataContext |> Query.getBooks do
-          select (book.Id, book.Title)
-      }
-      |> Seq.toList
-
-    let bookId =
-      AnsiConsole.Prompt(
-        SelectionPrompt<int64 * string>()
-          .Title("[bold]What book?[/]")
-          .UseConverter(snd)
-          .AddChoices(books)
-          .EnableSearch()
-      )
-      |> fst
-
+    let bookIdResult = selectBook readDataContext
     let initialPage = AnsiConsole.Ask<int> "[bold]Initial page[/]?"
     let finalPage = AnsiConsole.Ask<int> "[bold]Final page[/]?"
 
     let nextTopic =
       AnsiConsole.Prompt(TextPrompt<string>("[bold]Next topic[/]?").AllowEmpty())
 
-    let! result =
-      Command.logReading dataContext bookId initialPage finalPage (stringOptionIfEmpty nextTopic) DateTime.UtcNow
+    match bookIdResult with
+    | Ok bookId ->
+      let! result =
+        Command.logReading dataContext bookId initialPage finalPage (stringOptionIfEmpty nextTopic) DateTime.UtcNow
 
-    match result with
-    | Ok _ -> sprintf "[green] Reading log was saved![/]" |> AnsiConsole.MarkupLine
+      match result with
+      | Ok _ -> sprintf "[green] Reading log was saved![/]" |> AnsiConsole.MarkupLine
+      | Error es -> showErrors es
     | Error es -> showErrors es
   }
 
