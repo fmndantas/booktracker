@@ -6,7 +6,6 @@ open Expecto
 open Expecto.Flip.Expect
 
 open App
-open App.SqliteExtensions
 
 module Sut = Command
 

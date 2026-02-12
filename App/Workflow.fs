@@ -21,7 +21,7 @@ let item s = sprintf "\u2022 %s" s
 let showErrors (es: CommonTypes.AppError list) =
   let errorItems =
     es
-    |> List.map CommonTypes.appErrorToString
+    |> List.map appErrorToString
     |> List.map (boldRed >> item)
     |> fun es -> String.Join('\n', es)
 
