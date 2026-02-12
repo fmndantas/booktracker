@@ -5,8 +5,14 @@ open System.Text.RegularExpressions
 
 open App.CommonTypes
 
+let replace (pattern: string) (replacement: string) (v: string) = v.Replace(pattern, replacement)
+let replaceRegex (pattern: string) (replacement: string) (v: string) = Regex.Replace(v, pattern, replacement)
+let trim (v: string) = v.Trim()
+let isEmpty (v: string) = v.Length = 0
+let join (separator: char) (v: string[]) = String.Join(separator, v)
+let split (separator: char) (v: string) = v.Split separator
+
 // TODO: validate if groups form pairs
-// TODO: simplify this function
 let replacePlaceholders
   (command: HookCommand)
   (filepath: string)
@@ -16,10 +22,10 @@ let replacePlaceholders
   : (string * string) =
   let replaceFragment (fragment: string) : string =
     fragment
-      .Replace("{{initial_page}}", initialPage.ToString())
-      .Replace("{{final_page}}", finalPage.ToString())
-      .Replace("{{next_topic}}", nextTopic |> Option.defaultValue "")
-      .Replace("{{filepath}}", filepath)
+    |> replace "{{initial_page}}" (initialPage.ToString())
+    |> replace "{{final_page}}" (finalPage.ToString())
+    |> replace "{{next_topic}}" (nextTopic |> Option.defaultValue "")
+    |> replace "{{filepath}}" filepath
 
   let fragments =
     Regex.Split(command, @"(\[\[.*?\]\])")
@@ -27,26 +33,24 @@ let replacePlaceholders
       let trim = s.Trim()
 
       match trim.Length > 0 with
-      | true -> Some(trim.StartsWith "[[" && trim.EndsWith "]]", trim.Replace("[[", "").Replace("]]", ""))
+      | true -> Some(trim.StartsWith "[[" && trim.EndsWith "]]", trim)
       | _ -> None)
 
-  let fragments' =
+  let filteredFragments =
     fragments
-    |> Array.choose (fun (isOptional, s) ->
-      if isOptional && nextTopic.IsNone && s.Contains "{{next_topic}}" then
+    |> Array.choose (fun (isFragmentOptional, s) ->
+      if isFragmentOptional && nextTopic.IsNone && s.Contains "{{next_topic}}" then
         None
       else
         Some s)
 
-  let replacedFragments = Array.map replaceFragment fragments'
+  let replacedFragments = Array.map replaceFragment filteredFragments
 
   let finalFragments =
-    Regex.Replace(String.Join(" ", replacedFragments), "\s{2,}", " ").Split " "
-    |> Array.filter (fun s -> s.Length > 0)
+    replacedFragments
+    |> Array.map (replaceRegex "\s{2,}" " " >> replace "[[" "" >> replace "]]" "" >> trim)
+    |> Array.filter (isEmpty >> not)
+    |> join ' '
+    |> split ' '
 
-  if fragments.Length = 0 then
-    "", ""
-  elif finalFragments.Length = 1 then
-    finalFragments[0], ""
-  else
-    finalFragments[0], String.Join(" ", Array.tail finalFragments)
+  finalFragments[0], finalFragments |> Array.tail |> join ' '
