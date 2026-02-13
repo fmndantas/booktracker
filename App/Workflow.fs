@@ -40,7 +40,7 @@ let selectBook (readDataContext: Context.ReadDataContext) : Result<BookId, AppEr
     |> Seq.toList
 
   if books.Length = 0 then
-    Error[BusinessError "You don't have any book saved"]
+    Error[BusinessError "You don't have any books saved"]
   else
     AnsiConsole.Prompt(
       SelectionPrompt<int64 * string>().Title("[bold]Select book[/]").UseConverter(snd).AddChoices(books).EnableSearch()
@@ -57,7 +57,7 @@ let selectHook (readDataContext: Context.ReadDataContext) : Result<HookId, AppEr
     |> Seq.toList
 
   if hooks.Length = 0 then
-    Error[BusinessError "You don't have any hook saved"]
+    Error[BusinessError "You don't have any hooks saved"]
   else
     AnsiConsole.Prompt(
       SelectionPrompt<int64 * string>().Title("[bold]Select hook[/]").UseConverter(snd).AddChoices(hooks).EnableSearch()
@@ -66,7 +66,7 @@ let selectHook (readDataContext: Context.ReadDataContext) : Result<HookId, AppEr
     |> Ok
 
 let createBook (dataContext: Context.DataContext) (bookFolder: string) : unit =
-  AnsiConsole.MarkupLine "Type [green]book[/] data!"
+  AnsiConsole.MarkupLine "Enter [green]book[/] details!"
   let title = AnsiConsole.Ask<string> "[bold]Title[/]?"
   let author = AnsiConsole.Prompt(TextPrompt<string>("[bold]Author[/]?").AllowEmpty())
 
@@ -199,13 +199,13 @@ let continueLastReading (readDataContext: Context.ReadDataContext) : unit =
     let! readingLog =
       match Query.getLastReadingLogByBook readDataContext (Some bookId) with
       | Some readingLog -> readingLog |> Ok
-      | None -> Error[BusinessError "Book does not have reading log entries yet"]
+      | None -> Error[BusinessError "No reading logs found for this book"]
 
     let! command = Query.getHookCommandByReadingLog readDataContext hookId readingLog.Id
     let! _ = spawnProcess command
 
     readingLog.NextTopic
-    |> ValueOption.iter (sprintf "Next topic: %s" >> AnsiConsole.MarkupLine)
+    |> ValueOption.iter (sprintf "Next topic: [green]\"%s\"[/]" >> AnsiConsole.MarkupLine)
 
     return ()
   }
