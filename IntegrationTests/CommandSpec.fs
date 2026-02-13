@@ -10,17 +10,18 @@ open App
 module Sut = Command
 
 let ``it creates a book`` =
-  testCaseAsync "it creates a book"
-  <| async {
+  testCase "it creates a book"
+  <| fun () ->
     // arrange
     let w, r = Utils.getTestDataContexts ()
-    do! Utils.cleanDatabase w
+    do Utils.cleanDatabase w
 
     let title, author, mainTopic, filepath, now =
       Utils.random5String (), Utils.random5String (), Utils.random5String (), Utils.random5String (), DateTime.UtcNow
 
     // act
-    let! result = Sut.createBook w title (ValueSome author) (ValueSome mainTopic) (ValueSome filepath) now
+    let result =
+      Sut.createBook w title (ValueSome author) (ValueSome mainTopic) (ValueSome filepath) now
 
     // assert
     let savedBooks = Query.getBooks r |> Seq.toList
@@ -34,15 +35,15 @@ let ``it creates a book`` =
         let actual = head.Id, head.Title, head.Author, head.Filepath, head.Modified
         let expected = savedBookId, head.Title, head.Author, head.Filepath, head.Modified
         actual |> equal "wrong book" expected
-  }
+
 
 let ``it logs reading for a book`` =
-  testCaseAsync "it logs reading for a book"
-  <| async {
+  testCase "it logs reading for a book"
+  <| fun () ->
     // arrange
     let w, r = Utils.getTestDataContexts ()
-    do! Utils.cleanDatabase w
-    let! newBook = Utils.createRandomBook w
+    Utils.cleanDatabase w
+    let newBook = Utils.createRandomBook w
 
     let now = DateTime.UtcNow
 
@@ -65,13 +66,12 @@ let ``it logs reading for a book`` =
     |> fun savedReadingLog ->
         let expected = readingLogs.Head
         savedReadingLog |> equal "objects are different" expected.Id
-  }
 
 let ``it returns error if a log is created with a book that does not exists`` =
-  testCaseAsync "it returns error if a log is created with a book that does not exists"
-  <| async {
+  testCase "it returns error if a log is created with a book that does not exists"
+  <| fun () ->
     let w, _ = Utils.getTestDataContexts ()
-    do! Utils.cleanDatabase w
+    Utils.cleanDatabase w
 
     let! result =
       Sut.logReading
@@ -85,7 +85,6 @@ let ``it returns error if a log is created with a book that does not exists`` =
     result
     |> wantError "result should be an error"
     |> contains "does not have expected error" (CommonTypes.AppError.BusinessError "Log points to inexistent book")
-  }
 
 [<Tests>]
 let commandSpec =

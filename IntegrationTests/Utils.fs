@@ -32,22 +32,18 @@ let randomInt a b = Random().Next(a, b)
 
 let randomInt1_10 () = randomInt 1 10
 
-let cleanDatabase (context: Context.DataContext) : Async<unit> =
-  async {
-    context.Main.ReadingLog |> Seq.iter _.Delete()
-    context.Main.Book |> Seq.iter _.Delete()
-    context.Main.Hook |> Seq.iter _.Delete()
-    return! context.SubmitUpdatesAsync() |> Async.AwaitTask
-  }
+let cleanDatabase (context: Context.DataContext) : unit =
+  context.Main.ReadingLog |> Seq.iter _.Delete()
+  context.Main.Book |> Seq.iter _.Delete()
+  context.Main.Hook |> Seq.iter _.Delete()
+  context.SubmitUpdates()
 
 let createRandomBook (context: Context.DataContext) =
-  async {
-    let book = context.Main.Book.Create()
-    book.Title <- random5String ()
-    book.Author <- random5String () |> ValueSome
-    book.MainTopic <- random5String () |> ValueSome
-    book.Filepath <- random5String () |> ValueSome
-    book.Modified <- DateTime.UtcNow.ToSqlite
-    do! context.SubmitUpdatesAsync() |> Async.AwaitTask
-    return book
-  }
+  let book = context.Main.Book.Create()
+  book.Title <- random5String ()
+  book.Author <- random5String () |> ValueSome
+  book.MainTopic <- random5String () |> ValueSome
+  book.Filepath <- random5String () |> ValueSome
+  book.Modified <- DateTime.UtcNow.ToSqlite
+  context.SubmitUpdates()
+  book

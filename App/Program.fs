@@ -20,18 +20,18 @@ let main argv =
   let result = parser.ParseCommandLine argv
 
   if result.Contains Parser.Arguments.Get_Books then
-    r |> Workflow.getBooks |> Async.RunSynchronously
+    r |> Workflow.getBooks
 
   if result.Contains Parser.Arguments.Get_Logs_By_Book then
-    r |> Workflow.getLastReadingLogsByBook |> Async.RunSynchronously
+    r |> Workflow.getLastReadingLogsByBook
 
   if result.Contains Parser.Arguments.Create_Book then
-    (w, bookFolder) ||> Workflow.createBook |> Async.RunSynchronously
+    (w, bookFolder) ||> Workflow.createBook
 
   if result.Contains Parser.Arguments.Log_Reading then
-    (r, w) ||> Workflow.logReading |> Async.RunSynchronously
+    (r, w) ||> Workflow.logReading
 
   if result.Contains Parser.Arguments.Continue_Last_Reading then
-    r |> Workflow.continueLastReading |> Async.RunSynchronously
+    r |> Workflow.continueLastReading
 
   0

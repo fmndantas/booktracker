@@ -11,7 +11,7 @@ val createBook:
     mainTopic: string ValueOption ->
     filepath: string ValueOption ->
     modified: DateTime ->
-        Async<Result<BookId, AppError list>>
+        Result<BookId, AppError list>
 
 val logReading:
     dataContext: Context.DataContext ->
@@ -20,4 +20,4 @@ val logReading:
     finalPage: int ->
     nextTopic: string ValueOption ->
     now: DateTime ->
-        Async<Result<ReadingLogId, AppError list>>
+        Result<ReadingLogId, AppError list>
