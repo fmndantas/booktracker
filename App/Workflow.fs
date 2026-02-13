@@ -19,8 +19,7 @@ let boldRed s = sprintf "[bold red]%s[/]" s
 
 let item s = sprintf "\u2022 %s" s
 
-let showDateTime (v: DateTime) = 
-  v.ToString "yyyy/MM/dd HH:mm:ss"
+let showDateTime (v: DateTime) = v.ToString "yyyy/MM/dd HH:mm:ss"
 
 let showErrors (es: CommonTypes.AppError list) =
   let errorItems =
@@ -116,7 +115,13 @@ let logReading (readDataContext: Context.ReadDataContext) (dataContext: Context.
   result {
     let! bookId = selectBook readDataContext
 
-    let initialPage = AnsiConsole.Ask<int> "[bold]Initial page[/]?"
+    let lastReadingLog = Query.getLastReadingLogByBook readDataContext (Some bookId)
+
+    let initialPage =
+      lastReadingLog
+      |> Option.map (fun v -> AnsiConsole.Ask<int>("[bold]Initial page[/]?", int v.FinalPage))
+      |> Option.defaultValue (AnsiConsole.Ask<int> "[bold]Initial page[/]?")
+
     let finalPage = AnsiConsole.Ask<int> "[bold]Final page[/]?"
 
     let nextTopic =
