@@ -108,46 +108,28 @@ let getBooks (dataContext: Context.ReadDataContext) : unit =
 
   AnsiConsole.Write table
 
-// TODO: needs AsyncResult
 let logReading (readDataContext: Context.ReadDataContext) (dataContext: Context.DataContext) : unit =
-  let bookIdResult = selectBook readDataContext
-  let initialPage = AnsiConsole.Ask<int> "[bold]Initial page[/]?"
-  let finalPage = AnsiConsole.Ask<int> "[bold]Final page[/]?"
+  result {
+    let! bookId = selectBook readDataContext
 
-  let nextTopic =
-    AnsiConsole.Prompt(TextPrompt<string>("[bold]Next topic[/]?").AllowEmpty())
+    let initialPage = AnsiConsole.Ask<int> "[bold]Initial page[/]?"
+    let finalPage = AnsiConsole.Ask<int> "[bold]Final page[/]?"
 
-  match bookIdResult with
-  | Ok bookId ->
+    let nextTopic =
+      AnsiConsole.Prompt(TextPrompt<string>("[bold]Next topic[/]?").AllowEmpty())
+
     let! result =
       Command.logReading dataContext bookId initialPage finalPage (stringOptionIfEmpty nextTopic) DateTime.UtcNow
 
-    match result with
-    | Ok _ -> sprintf "[green] Reading log was saved![/]" |> AnsiConsole.MarkupLine
+    return result
+  }
+  |> function
+    | Ok _ -> ()
     | Error es -> showErrors es
-  | Error es -> showErrors es
 
-// TODO: use selectBook
 let getLastReadingLogsByBook (readDataContext: Context.ReadDataContext) : unit =
-  let books =
-    query {
-      for book in readDataContext |> Query.getBooks do
-        select (book.Id, book.Title)
-    }
-    |> Seq.toList
-
-  if List.isEmpty books then
-    AnsiConsole.MarkupLine "You don't have any book saved. Please, [bold]create a book[/]"
-  else
-    let bookId =
-      AnsiConsole.Prompt(
-        SelectionPrompt<int64 * string>()
-          .Title("[bold]What book?[/]")
-          .UseConverter(snd)
-          .AddChoices(books)
-          .EnableSearch()
-      )
-      |> fst
+  result {
+    let! bookId = selectBook readDataContext
 
     let readingLogs =
       query {
@@ -172,6 +154,11 @@ let getLastReadingLogsByBook (readDataContext: Context.ReadDataContext) : unit =
       values |> table.AddRow |> ignore)
 
     AnsiConsole.Write table
+  }
+  |> function
+    | Ok _ -> ()
+    | Error es -> showErrors es
+
 
 let spawnProcess (command: string * string) : Result<unit, AppError list> =
   result {
@@ -185,20 +172,19 @@ let spawnProcess (command: string * string) : Result<unit, AppError list> =
   }
 
 let continueLastReading (readDataContext: Context.ReadDataContext) : unit =
-  match
-    result {
-      let! hookId = selectHook readDataContext
-      let! bookId = selectBook readDataContext
+  result {
+    let! hookId = selectHook readDataContext
+    let! bookId = selectBook readDataContext
 
-      let! readingLogId =
-        match Query.getLastReadingLogByBook readDataContext (Some bookId) with
-        | Some readingLog -> readingLog.Id |> Ok
-        | None -> Error[BusinessError "Book does not have log entries yet"]
+    let! readingLogId =
+      match Query.getLastReadingLogByBook readDataContext (Some bookId) with
+      | Some readingLog -> readingLog.Id |> Ok
+      | None -> Error[BusinessError "Book does not have log entries yet"]
 
-      let! command = Query.getHookCommandByReadingLog readDataContext hookId readingLogId
-      let! _ = spawnProcess command
-      return ()
-    }
-  with
-  | Error es -> showErrors es
-  | _ -> ()
+    let! command = Query.getHookCommandByReadingLog readDataContext hookId readingLogId
+    let! _ = spawnProcess command
+    return ()
+  }
+  |> function
+    | Error es -> showErrors es
+    | _ -> ()

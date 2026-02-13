@@ -40,10 +40,7 @@ let main argv =
   timer.Restart()
 
   if result.Contains Parser.Arguments.Get_Books then
-    timer.Restart()
     r |> Workflow.getBooks
-    timer.Stop()
-    printfn "workflow.t = %d" timer.ElapsedMilliseconds
 
   if result.Contains Parser.Arguments.Get_Logs_By_Book then
     r |> Workflow.getLastReadingLogsByBook
