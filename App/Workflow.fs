@@ -6,6 +6,7 @@ open System.Diagnostics
 open Spectre.Console
 
 open CommonTypes
+open SqliteExtensions
 
 let stringOption (evaluateAsNone: string -> bool) (s: string) : string ValueOption =
   if evaluateAsNone s then ValueNone else ValueSome s
@@ -17,6 +18,9 @@ let stringOptionIfValue v = stringOption (fun s -> s = v)
 let boldRed s = sprintf "[bold red]%s[/]" s
 
 let item s = sprintf "\u2022 %s" s
+
+let showDateTime (v: DateTime) = 
+  v.ToString "yyyy/MM/dd HH:mm:ss"
 
 let showErrors (es: CommonTypes.AppError list) =
   let errorItems =
@@ -148,7 +152,7 @@ let getLastReadingLogsByBook (readDataContext: Context.ReadDataContext) : unit =
         b.InitialPage.ToString()
         b.FinalPage.ToString()
         b.NextTopic |> ValueOption.defaultValue "-"
-        b.Modified
+        b.Modified.FromSqlite |> showDateTime
       |]
 
       values |> table.AddRow |> ignore)
