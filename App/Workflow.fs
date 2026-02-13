@@ -28,7 +28,7 @@ let showErrors (es: CommonTypes.AppError list) =
     |> List.map (boldRed >> item)
     |> fun es -> String.Join('\n', es)
 
-  AnsiConsole.MarkupLine(boldRed "Some errors ocurred:")
+  AnsiConsole.MarkupLine(boldRed "Something went wrong:")
   AnsiConsole.MarkupLine errorItems
 
 let selectBook (readDataContext: Context.ReadDataContext) : Result<BookId, AppError list> =
@@ -168,30 +168,45 @@ let getLastReadingLogsByBook (readDataContext: Context.ReadDataContext) : unit =
     | Ok _ -> ()
     | Error es -> showErrors es
 
-
 let spawnProcess (command: string * string) : Result<unit, AppError list> =
-  result {
+  try
     let processInfo = ProcessStartInfo(fst command, snd command)
     processInfo.UseShellExecute <- false
-    processInfo.RedirectStandardOutput <- false
-    processInfo.RedirectStandardError <- false
+    processInfo.CreateNoWindow <- true
+    processInfo.RedirectStandardOutput <- true
+    processInfo.RedirectStandardError <- true
     processInfo.RedirectStandardInput <- false
-    let _ = Process.Start processInfo
-    return ()
-  }
+    let p = Process.Start processInfo
+    p.OutputDataReceived.Add ignore
+    p.ErrorDataReceived.Add ignore
+    p.EnableRaisingEvents <- true
+    p.Exited.Add(fun _ -> p.Dispose())
+
+    if p.Start() then
+      p.BeginOutputReadLine()
+      p.BeginErrorReadLine()
+      Ok()
+    else
+      Error [ HookError "Process could not be started" ]
+  with ex ->
+    Error [ HookError ex.Message ]
 
 let continueLastReading (readDataContext: Context.ReadDataContext) : unit =
   result {
     let! hookId = selectHook readDataContext
     let! bookId = selectBook readDataContext
 
-    let! readingLogId =
+    let! readingLog =
       match Query.getLastReadingLogByBook readDataContext (Some bookId) with
-      | Some readingLog -> readingLog.Id |> Ok
-      | None -> Error[BusinessError "Book does not have log entries yet"]
+      | Some readingLog -> readingLog |> Ok
+      | None -> Error[BusinessError "Book does not have reading log entries yet"]
 
-    let! command = Query.getHookCommandByReadingLog readDataContext hookId readingLogId
+    let! command = Query.getHookCommandByReadingLog readDataContext hookId readingLog.Id
     let! _ = spawnProcess command
+
+    readingLog.NextTopic
+    |> ValueOption.iter (sprintf "Next topic: %s" >> AnsiConsole.MarkupLine)
+
     return ()
   }
   |> function

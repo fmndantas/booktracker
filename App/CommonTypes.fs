@@ -8,8 +8,10 @@ type HookCommand = string
 type AppError =
   | GenericError of string
   | BusinessError of string
+  | HookError of string
 
 let appErrorToString appError =
   match appError with
   | GenericError e
-  | BusinessError e -> e
+  | BusinessError e
+  | HookError e -> e
