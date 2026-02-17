@@ -5,6 +5,11 @@ open System.Text.RegularExpressions
 
 open App.CommonTypes
 
+let initialPagePlaceholder = "{{initial-page}}"
+let finalPagePlaceholder = "{{final-page}}"
+let nextTopicPlaceholder = "{{next-topic}}"
+let filepathPlaceholder = "{{filepath}}"
+
 let replace (pattern: string) (replacement: string) (v: string) = v.Replace(pattern, replacement)
 let replaceRegex (pattern: string) (replacement: string) (v: string) = Regex.Replace(v, pattern, replacement)
 let trim (v: string) = v.Trim()
@@ -22,10 +27,10 @@ let replacePlaceholders
   : (string * string) =
   let replaceFragment (fragment: string) : string =
     fragment
-    |> replace "{{initial_page}}" (initialPage.ToString())
-    |> replace "{{final_page}}" (finalPage.ToString())
-    |> replace "{{next_topic}}" (nextTopic |> Option.defaultValue "")
-    |> replace "{{filepath}}" filepath
+    |> replace initialPagePlaceholder (initialPage.ToString())
+    |> replace finalPagePlaceholder (finalPage.ToString())
+    |> replace nextTopicPlaceholder (nextTopic |> Option.defaultValue "")
+    |> replace filepathPlaceholder filepath
 
   let fragments =
     Regex.Split(command, @"(\[\[.*?\]\])")
@@ -39,7 +44,7 @@ let replacePlaceholders
   let filteredFragments =
     fragments
     |> Array.choose (fun (isFragmentOptional, s) ->
-      if isFragmentOptional && nextTopic.IsNone && s.Contains "{{next_topic}}" then
+      if isFragmentOptional && nextTopic.IsNone && s.Contains nextTopicPlaceholder then
         None
       else
         Some s)

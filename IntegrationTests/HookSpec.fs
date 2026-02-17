@@ -10,7 +10,7 @@ module Sut = App.Hook
 let ``it replaces parameters in hook command`` =
   testTheory "it replaces parameters in hook command" [
     1,
-    "sioyek {{filepath}} --initial-page {{initial_page}} --final-page {{final_page}} [[--next-topic \"{{next_topic}}\"]]",
+    "sioyek {{filepath}} --initial-page {{initial-page}} --final-page {{final-page}} [[--next-topic \"{{next-topic}}\"]]",
     "foo.pdf",
     1,
     2,
@@ -18,7 +18,7 @@ let ``it replaces parameters in hook command`` =
     ("sioyek", "foo.pdf --initial-page 1 --final-page 2 --next-topic \"next topic\"")
 
     2,
-    "foo [[--blah-blah {{next_topic}}]] bar",
+    "foo [[--blah-blah {{next-topic}}]] bar",
     random5String (),
     randomInt1_10 (),
     randomInt1_10 (),
@@ -26,7 +26,7 @@ let ``it replaces parameters in hook command`` =
     ("foo", "bar")
 
     3,
-    "foo --blah-blah {{next_topic}} bar",
+    "foo --blah-blah {{next-topic}} bar",
     random5String (),
     randomInt1_10 (),
     randomInt1_10 (),

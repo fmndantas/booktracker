@@ -90,7 +90,7 @@ let ``it returns hook command filled with book data`` =
 
     let hook =
       w.Main.Hook.``Create(command, name)`` (
-        "sioyek {{filepath}} --initial-page {{initial_page}} --final-page {{final_page}} --next-topic {{next_topic}}",
+        "sioyek {{filepath}} --initial-page {{initial-page}} --final-page {{final-page}} --next-topic {{next-topic}}",
         Utils.random5String ()
       )
 
