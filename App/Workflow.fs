@@ -42,8 +42,9 @@ module Helpers =
 let selectBook (readDataContext: Context.ReadDataContext) : Result<BookId, AppError list> =
   let books =
     query {
-      for book in readDataContext |> Query.getBooks do
-        select (book.Id, book.Title)
+      for book in readDataContext |> Query.getBooksOrderedByLastReadingLog do
+        where (book.Id.IsSome && book.Title.IsSome)
+        select (book.Id.Value, book.Title.Value)
     }
     |> Seq.toList
 
@@ -105,11 +106,11 @@ let getBooks (dataContext: Context.ReadDataContext) : unit =
   let table = Table().AddColumns("Title", "Author", "Main topic", "Filepath")
 
   dataContext
-  |> Query.getBooks
+  |> Query.getBooksOrderedByLastReadingLog
   |> Seq.toList
   |> List.iter (fun b ->
     let values = [|
-      b.Title
+      b.Title |> ValueOption.defaultValue "-"
       b.Author |> ValueOption.defaultValue "-"
       b.MainTopic |> ValueOption.defaultValue "-"
       b.Filepath |> ValueOption.defaultValue "-"

@@ -50,13 +50,13 @@ let getHookCommandByReadingLog
 
   let errors = [
     if hook.IsNone then
-      AppError.BusinessError $"Hook with id {hookId} was not found"
+      BusinessError $"Hook with id {hookId} was not found"
 
     if readingLogOptional.IsNone then
-      AppError.BusinessError $"Reading log with id {readingLogId} was not found"
+      BusinessError $"Reading log with id {readingLogId} was not found"
 
     if filepathOptional.IsNone then
-      AppError.BusinessError $"Book pointed by log does not have a filepath"
+      BusinessError $"Book pointed by log does not have a filepath"
   ]
 
   if errors.Length = 0 then
@@ -72,3 +72,9 @@ let getHookCommandByReadingLog
     |> Ok
   else
     Error errors
+
+let getBooksOrderedByLastReadingLog (dataContext: Context.ReadDataContext) =
+  query {
+    for v in dataContext.Main.BookByLastReadingLog do
+      select v
+  }

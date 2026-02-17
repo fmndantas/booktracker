@@ -10,3 +10,5 @@ val getLastReadingLogByBook: dataContext: Context.ReadDataContext -> BookId opti
 
 val getHookCommandByReadingLog:
     dataContext: Context.ReadDataContext -> HookId -> ReadingLogId -> Result<string * string, AppError list>
+
+val getBooksOrderedByLastReadingLog: dataContext: Context.ReadDataContext -> IQueryable<Context.BookByLastReadingLog>
