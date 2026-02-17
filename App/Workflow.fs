@@ -8,28 +8,36 @@ open Spectre.Console
 open CommonTypes
 open SqliteExtensions
 
-let stringOption (evaluateAsNone: string -> bool) (s: string) : string ValueOption =
-  if evaluateAsNone s then ValueNone else ValueSome s
+[<AutoOpen>]
+module Helpers =
+  let stringOption (evaluateAsNone: string -> bool) (s: string) : string ValueOption =
+    if evaluateAsNone s then ValueNone else ValueSome s
 
-let stringOptionIfEmpty = stringOption (fun s -> s.Length = 0)
+  let stringOptionIfEmpty = stringOption (fun s -> s.Length = 0)
 
-let stringOptionIfValue v = stringOption (fun s -> s = v)
+  let stringOptionIfValue v = stringOption (fun s -> s = v)
 
-let boldRed s = sprintf "[bold red]%s[/]" s
+  let boldRed s = sprintf "[bold red]%s[/]" s
 
-let item s = sprintf "\u2022 %s" s
+  let item s = sprintf "\u2022 %s" s
 
-let showDateTime (v: DateTime) = v.ToString "yyyy/MM/dd HH:mm:ss"
+  let showDateTime (v: DateTime) = v.ToString "yyyy/MM/dd HH:mm:ss"
 
-let showErrors (es: CommonTypes.AppError list) =
-  let errorItems =
-    es
-    |> List.map appErrorToString
-    |> List.map (boldRed >> item)
-    |> fun es -> String.Join('\n', es)
+  let showErrors (es: CommonTypes.AppError list) =
+    let errorItems =
+      es
+      |> List.map appErrorToString
+      |> List.map (boldRed >> item)
+      |> fun es -> String.Join('\n', es)
 
-  AnsiConsole.MarkupLine(boldRed "Something went wrong:")
-  AnsiConsole.MarkupLine errorItems
+    AnsiConsole.MarkupLine(boldRed "Something went wrong:")
+    AnsiConsole.MarkupLine errorItems
+
+  let ask<'a> message (defaultValue: 'a option) =
+    if defaultValue.IsSome then
+      AnsiConsole.Ask<'a>(message, defaultValue.Value)
+    else
+      AnsiConsole.Ask<'a> message
 
 let selectBook (readDataContext: Context.ReadDataContext) : Result<BookId, AppError list> =
   let books =
@@ -115,12 +123,12 @@ let logReading (readDataContext: Context.ReadDataContext) (dataContext: Context.
   result {
     let! bookId = selectBook readDataContext
 
-    let lastReadingLog = Query.getLastReadingLogByBook readDataContext (Some bookId)
-
     let initialPage =
-      lastReadingLog
-      |> Option.map (fun v -> AnsiConsole.Ask<int>("[bold]Initial page[/]?", int v.FinalPage))
-      |> Option.defaultValue (AnsiConsole.Ask<int> "[bold]Initial page[/]?")
+      (readDataContext, Some bookId)
+      ||> Query.getLastReadingLogByBook
+      |> Option.map _.FinalPage
+      |> ask "[bold]Initial page[/]?"
+      |> int
 
     let finalPage = AnsiConsole.Ask<int> "[bold]Final page[/]?"
 
@@ -133,7 +141,7 @@ let logReading (readDataContext: Context.ReadDataContext) (dataContext: Context.
     return result
   }
   |> function
-    | Ok _ -> ()
+    | Ok _ -> AnsiConsole.MarkupLine "[green]Reading log was saved successfully![/]"
     | Error es -> showErrors es
 
 let getLastReadingLogsByBook (readDataContext: Context.ReadDataContext) : unit =
@@ -162,10 +170,10 @@ let getLastReadingLogsByBook (readDataContext: Context.ReadDataContext) : unit =
 
       values |> table.AddRow |> ignore)
 
-    AnsiConsole.Write table
+    return table
   }
   |> function
-    | Ok _ -> ()
+    | Ok v -> AnsiConsole.Write v
     | Error es -> showErrors es
 
 let spawnProcess (command: string * string) : Result<unit, AppError list> =
@@ -204,11 +212,10 @@ let continueLastReading (readDataContext: Context.ReadDataContext) : unit =
     let! command = Query.getHookCommandByReadingLog readDataContext hookId readingLog.Id
     let! _ = spawnProcess command
 
-    readingLog.NextTopic
-    |> ValueOption.iter (sprintf "Next topic: [green]\"%s\"[/]" >> AnsiConsole.MarkupLine)
-
-    return ()
+    return readingLog.NextTopic
   }
   |> function
+    | Ok v ->
+      v
+      |> ValueOption.iter (sprintf "Next topic: [green]\"%s\"[/]" >> AnsiConsole.MarkupLine)
     | Error es -> showErrors es
-    | _ -> ()
