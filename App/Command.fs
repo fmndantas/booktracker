@@ -23,6 +23,34 @@ let createBook
   dataContext.SubmitUpdates()
   Ok contextBook.Id
 
+let updateBook
+  (dataContext: Context.DataContext)
+  (bookId: BookId)
+  (title: string)
+  (author: string ValueOption)
+  (mainTopic: string ValueOption)
+  (filepath: string ValueOption)
+  (modified: DateTime)
+  : Result<BookId, AppError list> =
+  let bookOption =
+    query {
+      for book in dataContext.Main.Book do
+        where (book.Id = bookId)
+        select (Some book)
+        exactlyOneOrDefault
+    }
+
+  match bookOption with
+  | Some book ->
+    book.Title <- title
+    book.Author <- author
+    book.MainTopic <- mainTopic
+    book.Filepath <- filepath
+    book.Modified <- modified.ToSqlite
+    dataContext.SubmitUpdates()
+    Ok book.Id
+  | None -> Error [ DatabaseError(sprintf "Book with id %d does not exists" bookId) ]
+
 let logReading
   (dataContext: Context.DataContext)
   (bookId: BookId)

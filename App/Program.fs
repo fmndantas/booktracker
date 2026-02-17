@@ -39,7 +39,7 @@ let main argv =
       r |> Workflow.getLastReadingLogsByBook
 
     if result.Contains Parser.Arguments.Create_Book then
-      (w, bookFolder) ||> Workflow.createBook
+      Workflow.createOrEditBook r w bookFolder
 
     if result.Contains Parser.Arguments.Log_Reading then
       (r, w) ||> Workflow.logReading

@@ -6,6 +6,7 @@ open Expecto
 open Expecto.Flip.Expect
 
 open App
+open App.SqliteExtensions
 
 module Sut = Command
 
@@ -33,9 +34,38 @@ let ``it creates a book`` =
     |> fun savedBookId ->
         let head = savedBooks.Head
         let actual = head.Id, head.Title, head.Author, head.Filepath, head.Modified
-        let expected = savedBookId, head.Title, head.Author, head.Filepath, head.Modified
+
+        let expected =
+          savedBookId, title, ValueSome author, ValueSome filepath, now.ToSqlite
+
         actual |> equal "wrong book" expected
 
+let ``it updates a book`` =
+  testCase "it updates a book"
+  <| fun () ->
+    let w, r = Utils.getTestDataContexts ()
+    Utils.cleanDatabase w
+    let createdBook = Utils.createRandomBook w
+
+    let title, author, mainTopic, filepath, now =
+      Utils.random5String (), Utils.random5String (), Utils.random5String (), Utils.random5String (), DateTime.UtcNow
+
+    let result =
+      Sut.updateBook w createdBook.Id title (ValueSome author) (ValueSome mainTopic) (ValueSome filepath) now
+
+    let savedBooks = Query.getBooks r |> Seq.toList
+    savedBooks |> hasLength "number of saved books should be 1" 1
+
+    result
+    |> wantOk "result is not ok"
+    |> fun savedBookId ->
+        let head = savedBooks.Head
+        let actual = head.Id, head.Title, head.Author, head.Filepath, head.Modified
+
+        let expected =
+          savedBookId, title, ValueSome author, ValueSome filepath, now.ToSqlite
+
+        actual |> equal "wrong book" expected
 
 let ``it logs reading for a book`` =
   testCase "it logs reading for a book"
@@ -90,6 +120,7 @@ let ``it returns error if a log is created with a book that does not exists`` =
 let commandSpec =
   testList "command" [
     ``it creates a book``
+    ``it updates a book``
     ``it returns error if a log is created with a book that does not exists``
     ``it logs reading for a book``
   ]

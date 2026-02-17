@@ -13,6 +13,16 @@ val createBook:
     modified: DateTime ->
         Result<BookId, AppError list>
 
+val updateBook:
+    dataContext: Context.DataContext ->
+    BookId ->
+    title: string ->
+    author: string ValueOption ->
+    mainTopic: string ValueOption ->
+    filepath: string ValueOption ->
+    modified: DateTime ->
+        Result<BookId, AppError list>
+
 val logReading:
     dataContext: Context.DataContext ->
     bookId: BookId ->

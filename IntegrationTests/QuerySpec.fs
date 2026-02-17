@@ -9,11 +9,11 @@ open App
 open App.SqliteExtensions
 
 let ``it gets books`` =
-  testCaseAsync "it get books"
-  <| async {
+  testCase "it get books"
+  <| fun () ->
     // arrange
     let w, r = Utils.getTestDataContexts ()
-    do! Utils.cleanDatabase w
+    Utils.cleanDatabase w
     let! newBook = Utils.createRandomBook w
 
     // act
@@ -23,14 +23,13 @@ let ``it gets books`` =
     result |> hasLength "wrong result length" 1
     let book0 = result[0]
     book0.Title |> equal "wrong result" newBook.Title
-  }
 
 let ``it gets the last reading log`` =
-  testCaseAsync "it gets the last reading log"
-  <| async {
+  testCase "it gets the last reading log"
+  <| fun () ->
     // arrange
     let w, r = Utils.getTestDataContexts ()
-    do! Utils.cleanDatabase w
+    Utils.cleanDatabase w
     let! book = Utils.createRandomBook w
     let now = DateTime.UtcNow
 
@@ -51,23 +50,21 @@ let ``it gets the last reading log`` =
     |> fun lastReadingLog ->
         (lastReadingLog.IdBook, lastReadingLog.Read.FromSqlite)
         |> equal "reading log is incorrect" (book.Id, now)
-  }
 
 let ``it returns None when no last reading log exists`` =
-  testCaseAsync "it returns None when no last reading log exists"
-  <| async {
+  testCase "it returns None when no last reading log exists"
+  <| fun () ->
     let w, r = Utils.getTestDataContexts ()
-    do! Utils.cleanDatabase w
+    Utils.cleanDatabase w
     let result = Query.getLastReadingLogByBook r None
     result |> isNone "result should be None"
-  }
 
 let ``it returns hook command filled with book data`` =
-  testCaseAsync "it returns hook command filled with book data"
-  <| async {
+  testCase "it returns hook command filled with book data"
+  <| fun () ->
     // arrange
     let w, r = Utils.getTestDataContexts ()
-    do! Utils.cleanDatabase w
+    Utils.cleanDatabase w
 
     let! book = Utils.createRandomBook w
 
@@ -97,7 +94,7 @@ let ``it returns hook command filled with book data`` =
         Utils.random5String ()
       )
 
-    do! w.SubmitUpdatesAsync() |> Async.AwaitTask
+    w.SubmitUpdates()
 
     // act
     let result = Query.getHookCommandByReadingLog r hook.Id readingLogId
@@ -114,7 +111,6 @@ let ``it returns hook command filled with book data`` =
          readingLog.InitialPage
          readingLog.FinalPage
          readingLog.NextTopic.Value)
-  }
 
 [<Tests>]
 let querySpec =

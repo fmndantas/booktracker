@@ -6,6 +6,18 @@ open CommonTypes
 
 let getBooks (dataContext: Context.ReadDataContext) : IQueryable<Context.Book> = dataContext.Main.Book
 
+let getBookById (dataContext: Context.ReadDataContext) (bookId: BookId) : Result<Context.Book, AppError list> =
+  query {
+    for book in getBooks dataContext do
+      where (book.Id = bookId)
+      head
+  }
+  |> fun x ->
+    if x <> null then
+      Ok x
+    else
+      Error [ DatabaseError(sprintf "Book with id %d does not exists" bookId) ]
+
 let getReadingLogs (dataContext: Context.ReadDataContext) : IQueryable<Context.ReadingLog> = dataContext.Main.ReadingLog
 
 let getLastReadingLogByBook (dataContext: Context.ReadDataContext) (bookId: BookId option) : Context.ReadingLog option =

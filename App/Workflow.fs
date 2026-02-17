@@ -8,6 +8,17 @@ open Spectre.Console
 open CommonTypes
 open SqliteExtensions
 
+type BookDto = {
+  Title: string
+  Author: string ValueOption
+  MainTopic: string ValueOption
+  Filepath: string ValueOption
+}
+
+type CreateOrEditEntity<'T> =
+  | Create
+  | Edit of 'T
+
 [<AutoOpen>]
 module Helpers =
   let stringOption (evaluateAsNone: string -> bool) (s: string) : string ValueOption =
@@ -33,74 +44,114 @@ module Helpers =
     AnsiConsole.MarkupLine(boldRed "Something went wrong:")
     AnsiConsole.MarkupLine errorItems
 
-  let ask<'a> message (defaultValue: 'a option) =
+  let ask message (defaultValue: 'a option) =
     if defaultValue.IsSome then
-      AnsiConsole.Ask<'a>(message, defaultValue.Value)
+      AnsiConsole.Ask(message, defaultValue.Value)
     else
-      AnsiConsole.Ask<'a> message
+      AnsiConsole.Ask message
 
-let selectBook (readDataContext: Context.ReadDataContext) : Result<BookId, AppError list> =
-  let books =
-    query {
-      for book in readDataContext |> Query.getBooksOrderedByLastReadingLog do
-        where (book.Id.IsSome && book.Title.IsSome)
-        select (book.Id.Value, book.Title.Value)
+  let selectBook (readDataContext: Context.ReadDataContext) : Result<BookId, AppError list> =
+    let books =
+      query {
+        for book in readDataContext |> Query.getBooksOrderedByLastReadingLog do
+          where (book.Id.IsSome && book.Title.IsSome)
+          select (book.Id.Value, book.Title.Value)
+      }
+      |> Seq.toList
+
+    if books.Length = 0 then
+      Error[BusinessError "You don't have any books saved"]
+    else
+      AnsiConsole.Prompt(
+        SelectionPrompt<int64 * string>()
+          .Title("[bold]Select book[/]")
+          .UseConverter(snd)
+          .AddChoices(books)
+          .EnableSearch()
+      )
+      |> (fst >> Ok)
+
+  let selectHook (readDataContext: Context.ReadDataContext) : Result<HookId, AppError list> =
+    let hooks =
+      query {
+        for hook in readDataContext.Main.Hook do
+          select (hook.Id, hook.Name)
+      }
+      |> Seq.toList
+
+    if hooks.Length = 0 then
+      Error[BusinessError "You don't have any hooks saved"]
+    else
+      AnsiConsole.Prompt(
+        SelectionPrompt<int64 * string>()
+          .Title("[bold]Select hook[/]")
+          .UseConverter(snd)
+          .AddChoices(hooks)
+          .EnableSearch()
+      )
+      |> (fst >> Ok)
+
+  let askBookDetails (bookFolder: string) (entity: CreateOrEditEntity<Context.Book>) : BookDto =
+    let title, author, mainTopic =
+      match entity with
+      | Create -> "", "", ""
+      | Edit book ->
+        book.Title, book.Author |> ValueOption.defaultValue "", book.MainTopic |> ValueOption.defaultValue ""
+
+    let newTitle = ask "[bold]Title?[/]" (Some title)
+
+    let newAuthor =
+      AnsiConsole.Prompt(TextPrompt<string>("[bold]Author[/]?").AllowEmpty().DefaultValue author)
+
+    let newMainTopic =
+      AnsiConsole.Prompt(TextPrompt<string>("[bold]Main topic[/]?").AllowEmpty().DefaultValue mainTopic)
+
+    let noFilepath = "Leave it blank"
+    let files = [| noFilepath; yield! IO.Directory.GetFiles bookFolder |]
+
+    let filepath =
+      AnsiConsole.Prompt(SelectionPrompt<string>().Title("[bold]File path[/]").AddChoices(files).EnableSearch())
+
+    {
+      Title = newTitle
+      Author = stringOptionIfEmpty newAuthor
+      MainTopic = stringOptionIfEmpty newMainTopic
+      Filepath = stringOptionIfValue noFilepath filepath
     }
-    |> Seq.toList
 
-  if books.Length = 0 then
-    Error[BusinessError "You don't have any books saved"]
-  else
-    AnsiConsole.Prompt(
-      SelectionPrompt<int64 * string>().Title("[bold]Select book[/]").UseConverter(snd).AddChoices(books).EnableSearch()
-    )
-    |> fst
-    |> Ok
+let createOrEditBook
+  (readDataContext: Context.ReadDataContext)
+  (dataContext: Context.DataContext)
+  (bookFolder: string)
+  : unit =
+  result {
+    let action =
+      AnsiConsole.Prompt(SelectionPrompt<string>().AddChoices([| "Create"; "Edit" |]).EnableSearch())
 
-let selectHook (readDataContext: Context.ReadDataContext) : Result<HookId, AppError list> =
-  let hooks =
-    query {
-      for hook in readDataContext.Main.Hook do
-        select (hook.Id, hook.Name)
-    }
-    |> Seq.toList
+    let! createOrEditBook =
+      match action with
+      | "Create" -> Create |> Ok
+      | "Edit" ->
+        readDataContext
+        |> selectBook
+        |> Result.bind (Query.getBookById readDataContext)
+        |> Result.map Edit
+      | _ -> failwith "Unexpected case"
 
-  if hooks.Length = 0 then
-    Error[BusinessError "You don't have any hooks saved"]
-  else
-    AnsiConsole.Prompt(
-      SelectionPrompt<int64 * string>().Title("[bold]Select hook[/]").UseConverter(snd).AddChoices(hooks).EnableSearch()
-    )
-    |> fst
-    |> Ok
+    AnsiConsole.MarkupLine "Enter [green]book[/] details!"
 
-let createBook (dataContext: Context.DataContext) (bookFolder: string) : unit =
-  AnsiConsole.MarkupLine "Enter [green]book[/] details!"
-  let title = AnsiConsole.Ask<string> "[bold]Title[/]?"
-  let author = AnsiConsole.Prompt(TextPrompt<string>("[bold]Author[/]?").AllowEmpty())
+    let bookDetails = askBookDetails bookFolder createOrEditBook
 
-  let mainTopic =
-    AnsiConsole.Prompt(TextPrompt<string>("[bold]Main topic[/]?").AllowEmpty())
+    let createOrEdit =
+      match createOrEditBook with
+      | Create -> Command.createBook dataContext
+      | Edit book -> Command.updateBook dataContext book.Id
 
-  let noFilepath = "Leave it blank"
-
-  let files = IO.Directory.GetFiles bookFolder |> Array.insertAt 0 noFilepath
-
-  let filepath =
-    AnsiConsole.Prompt(SelectionPrompt<string>().Title("[bold]File path[/]").AddChoices(files).EnableSearch())
-
-  let result =
-    Command.createBook
-      dataContext
-      title
-      (stringOptionIfEmpty author)
-      (stringOptionIfEmpty mainTopic)
-      (stringOptionIfValue noFilepath filepath)
-      DateTime.UtcNow
-
-  match result with
-  | Ok _ -> sprintf "[green] Book was saved successfully![/]" |> AnsiConsole.MarkupLine
-  | Error es -> showErrors es
+    return! createOrEdit bookDetails.Title bookDetails.Author bookDetails.MainTopic bookDetails.Filepath DateTime.UtcNow
+  }
+  |> function
+    | Ok _ -> sprintf "[green] Book was saved successfully![/]" |> AnsiConsole.MarkupLine
+    | Error es -> showErrors es
 
 let getBooks (dataContext: Context.ReadDataContext) : unit =
   let table = Table().AddColumns("Title", "Author", "Main topic", "Filepath")
