@@ -4,13 +4,12 @@ type Mark =
     { Start: string -> unit
       End: string -> unit }
 
-val createOrEditBook:
-    readDataContext: Context.ReadDataContext -> dataContext: Context.DataContext -> bookFolder: string -> unit
+val createOrEditBook: Context.BooktrackerConnection -> bookFolder: string -> Mark -> unit
 
-val getBooks: dataContext: Context.ReadDataContext -> mark: Mark -> unit
+val getBooks: Context.BooktrackerConnection -> Mark -> unit
 
-val logReading: readDataContext: Context.ReadDataContext -> dataContext: Context.DataContext -> unit
+val logReading: Context.BooktrackerConnection -> Mark -> unit
 
-val getLastReadingLogsByBook: readDataContext: Context.ReadDataContext -> unit
+val getLastReadingLogsByBook: Context.BooktrackerConnection -> Mark -> unit
 
-val continueLastReading: readDataContext: Context.ReadDataContext -> unit
+val continueLastReading: Context.BooktrackerConnection -> Mark -> unit

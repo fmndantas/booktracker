@@ -4,30 +4,36 @@ open System
 
 open App.CommonTypes
 
+type Book =
+    { Title: string
+      Author: string option
+      MainTopic: string option
+      Filepath: string option }
+
 val createBook:
-    dataContext: Context.DataContext ->
+    Context.BooktrackerConnection ->
     title: string ->
-    author: string ValueOption ->
-    mainTopic: string ValueOption ->
-    filepath: string ValueOption ->
-    modified: DateTime ->
+    author: string option ->
+    mainTopic: string option ->
+    filepath: string option ->
+    now: DateTime ->
         Result<BookId, AppError list>
 
 val updateBook:
-    dataContext: Context.DataContext ->
+    Context.BooktrackerConnection ->
     BookId ->
     title: string ->
-    author: string ValueOption ->
-    mainTopic: string ValueOption ->
-    filepath: string ValueOption ->
-    modified: DateTime ->
+    author: string option ->
+    mainTopic: string option ->
+    filepath: string option ->
+    now: DateTime ->
         Result<BookId, AppError list>
 
 val logReading:
-    dataContext: Context.DataContext ->
-    bookId: BookId ->
+    Context.BooktrackerConnection ->
+    BookId ->
     initialPage: int ->
     finalPage: int ->
-    nextTopic: string ValueOption ->
+    nextTopic: string option ->
     now: DateTime ->
         Result<ReadingLogId, AppError list>

@@ -2,21 +2,15 @@ module IntegrationTests.Utils
 
 open System
 
+open Donald
+
 open App
-open App.SqliteExtensions
 
-[<Literal>]
-let private testDbConnectionString =
-  "DataSource=" + __SOURCE_DIRECTORY__ + "/../ddl/dummy.db"
-
-let private getWriteDataContext () =
-  Context.getWriteContext testDbConnectionString
-
-let private getReadDataContext () =
-  Context.getReadContext testDbConnectionString
-
-let getTestDataContexts () =
-  getWriteDataContext (), getReadDataContext ()
+// TODO: Move to memory.
+// Reference: https://github.com/pimbrouwers/Donald/blob/master/test/Donald.Tests/Tests.fs
+let getTestBooktrackerConnection () =
+  let path = __SOURCE_DIRECTORY__ + "/../ddl/dummy.db"
+  new Context.BooktrackerConnection $"Data Source={path};Version=3"
 
 let randomString (size: int) : string =
   let letters = [ 'a' .. 'z' ]
@@ -32,18 +26,42 @@ let randomInt a b = Random().Next(a, b)
 
 let randomInt1_10 () = randomInt 1 10
 
-let cleanDatabase (context: Context.DataContext) : unit =
-  context.Main.ReadingLog |> Seq.iter _.Delete()
-  context.Main.Book |> Seq.iter _.Delete()
-  context.Main.Hook |> Seq.iter _.Delete()
-  context.SubmitUpdates()
+let cleanDatabase (conn: Context.BooktrackerConnection) =
+  let sql =
+    "
+    delete from reading_log where id >= 0;  
+    delete from book where id >= 0;  
+  "
 
-let createRandomBook (context: Context.DataContext) =
-  let book = context.Main.Book.Create()
-  book.Title <- random5String ()
-  book.Author <- random5String () |> ValueSome
-  book.MainTopic <- random5String () |> ValueSome
-  book.Filepath <- random5String () |> ValueSome
-  book.Modified <- DateTime.UtcNow.ToSqlite
-  context.SubmitUpdates()
-  book
+  conn |> Db.newCommand sql |> Db.exec
+
+let createRandomBook (conn: Context.BooktrackerConnection) : Query.Book =
+  let book =
+    {
+      Title = random5String ()
+      Author = random5String () |> Some
+      MainTopic = random5String () |> Some
+      Filepath = random5String () |> Some
+    }
+    : Command.Book
+
+  conn
+  |> Db.newCommand
+    "
+    insert into book (title, author, main_topic, filepath, modified) 
+    values (@title, @author, @main_topic, @filepath, @now);
+
+    select * from book
+    where book.id = last_insert_rowid();
+    "
+  |> Db.setParams [
+    "title", SqlType.String book.Title
+    "author", sqlStringOrNull book.Author
+    "main_topic", sqlStringOrNull book.MainTopic
+    "filepath", sqlStringOrNull book.Filepath
+    "now", sqlDateTime DateTime.UtcNow
+  ]
+  |> Db.querySingle Query.bookFromDataReader
+  |> function
+    | Some v -> v
+    | None -> failwith "Random book creation failed"
