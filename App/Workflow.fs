@@ -7,6 +7,7 @@ open Spectre.Console
 
 open CommonTypes
 open SqliteExtensions
+open SpectreWrapper
 
 type BookDto = {
   Title: string
@@ -21,34 +22,14 @@ type CreateOrEditEntity<'T> =
 
 [<AutoOpen>]
 module Helpers =
-  let stringOption (evaluateAsNone: string -> bool) (s: string) : string ValueOption =
+  let string2Option (evaluateAsNone: string -> bool) (s: string) : string ValueOption =
     if evaluateAsNone s then ValueNone else ValueSome s
 
-  let stringOptionIfEmpty = stringOption (fun s -> s.Length = 0)
+  let stringIsNoneIfEmpty = string2Option (fun s -> s.Length = 0)
 
-  let stringOptionIfValue v = stringOption (fun s -> s = v)
-
-  let boldRed s = sprintf "[bold red]%s[/]" s
-
-  let item s = sprintf "\u2022 %s" s
+  let stringIsNoneIfHasValue v = string2Option (fun s -> s = v)
 
   let showDateTime (v: DateTime) = v.ToString "yyyy/MM/dd HH:mm:ss"
-
-  let showErrors (es: CommonTypes.AppError list) =
-    let errorItems =
-      es
-      |> List.map appErrorToString
-      |> List.map (boldRed >> item)
-      |> fun es -> String.Join('\n', es)
-
-    AnsiConsole.MarkupLine(boldRed "Something went wrong:")
-    AnsiConsole.MarkupLine errorItems
-
-  let ask message (defaultValue: 'a option) =
-    if defaultValue.IsSome then
-      AnsiConsole.Ask(message, defaultValue.Value)
-    else
-      AnsiConsole.Ask message
 
   let selectBook (readDataContext: Context.ReadDataContext) : Result<BookId, AppError list> =
     let books =
@@ -91,32 +72,31 @@ module Helpers =
       )
       |> (fst >> Ok)
 
-  let askBookDetails (bookFolder: string) (entity: CreateOrEditEntity<Context.Book>) : BookDto =
+  let askBookDetails (bookFolder: string) (v: CreateOrEditEntity<Context.Book>) : BookDto =
     let title, author, mainTopic =
-      match entity with
-      | Create -> "", "", ""
-      | Edit book ->
-        book.Title, book.Author |> ValueOption.defaultValue "", book.MainTopic |> ValueOption.defaultValue ""
+      match v with
+      | Create -> None, None, None
+      | Edit book -> Some book.Title, book.Author |> Option.ofValueOption, book.MainTopic |> Option.ofValueOption
 
-    let newTitle = ask "[bold]Title?[/]" (Some title)
+    let newTitle = ask "[bold]Title?[/]" title
 
     let newAuthor =
-      AnsiConsole.Prompt(TextPrompt<string>("[bold]Author[/]?").AllowEmpty().DefaultValue author)
+      AnsiConsole.Prompt(aTextPrompt "[bold]Author[/]?" |> allowEmpty |> defaultValueOption author)
 
     let newMainTopic =
-      AnsiConsole.Prompt(TextPrompt<string>("[bold]Main topic[/]?").AllowEmpty().DefaultValue mainTopic)
+      AnsiConsole.Prompt(aTextPrompt "[bold]Main topic[/]?" |> allowEmpty |> defaultValueOption mainTopic)
 
     let noFilepath = "Leave it blank"
     let files = [| noFilepath; yield! IO.Directory.GetFiles bookFolder |]
 
     let filepath =
-      AnsiConsole.Prompt(SelectionPrompt<string>().Title("[bold]File path[/]").AddChoices(files).EnableSearch())
+      AnsiConsole.Prompt(aSelectionPrompt "[bold]File path[/]" |> addChoices files |> enableSearch)
 
     {
       Title = newTitle
-      Author = stringOptionIfEmpty newAuthor
-      MainTopic = stringOptionIfEmpty newMainTopic
-      Filepath = stringOptionIfValue noFilepath filepath
+      Author = stringIsNoneIfEmpty newAuthor
+      MainTopic = stringIsNoneIfEmpty newMainTopic
+      Filepath = stringIsNoneIfHasValue noFilepath filepath
     }
 
 let createOrEditBook
@@ -126,50 +106,50 @@ let createOrEditBook
   : unit =
   result {
     let action =
-      AnsiConsole.Prompt(SelectionPrompt<string>().AddChoices([| "Create"; "Edit" |]).EnableSearch())
+      AnsiConsole.Prompt(aSelectionPrompt' () |> addChoices [| "Create"; "Edit" |] |> enableSearch)
 
     let! createOrEditBook =
       match action with
       | "Create" -> Create |> Ok
       | "Edit" ->
-        readDataContext
-        |> selectBook
-        |> Result.bind (Query.getBookById readDataContext)
-        |> Result.map Edit
-      | _ -> failwith "Unexpected case"
+        result {
+          let! bookId = selectBook readDataContext
+          let! book = Query.getBookById readDataContext bookId
+          return Edit book
+        }
+      | _ -> failwith "Unexpected action"
 
     AnsiConsole.MarkupLine "Enter [green]book[/] details!"
 
     let bookDetails = askBookDetails bookFolder createOrEditBook
 
-    let createOrEdit =
+    let createOrEditFn =
       match createOrEditBook with
       | Create -> Command.createBook dataContext
       | Edit book -> Command.updateBook dataContext book.Id
 
-    return! createOrEdit bookDetails.Title bookDetails.Author bookDetails.MainTopic bookDetails.Filepath DateTime.UtcNow
+    return!
+      createOrEditFn bookDetails.Title bookDetails.Author bookDetails.MainTopic bookDetails.Filepath DateTime.UtcNow
   }
   |> function
     | Ok _ -> sprintf "[green] Book was saved successfully![/]" |> AnsiConsole.MarkupLine
     | Error es -> showErrors es
 
 let getBooks (dataContext: Context.ReadDataContext) : unit =
-  let table = Table().AddColumns("Title", "Author", "Main topic", "Filepath")
+  let books = Query.getBooksOrderedByLastReadingLog dataContext |> Seq.toArray
 
-  dataContext
-  |> Query.getBooksOrderedByLastReadingLog
-  |> Seq.toList
-  |> List.iter (fun b ->
-    let values = [|
+  aTable ()
+  |> addColumns [| "Title"; "Author"; "Main topic"; "Filepath" |]
+  |> addRows (
+    books
+    |> Array.map (fun b -> [|
       b.Title |> ValueOption.defaultValue "-"
       b.Author |> ValueOption.defaultValue "-"
       b.MainTopic |> ValueOption.defaultValue "-"
       b.Filepath |> ValueOption.defaultValue "-"
-    |]
-
-    values |> table.AddRow |> ignore)
-
-  AnsiConsole.Write table
+    |])
+  )
+  |> AnsiConsole.Write
 
 let logReading (readDataContext: Context.ReadDataContext) (dataContext: Context.DataContext) : unit =
   result {
@@ -178,17 +158,15 @@ let logReading (readDataContext: Context.ReadDataContext) (dataContext: Context.
     let initialPage =
       (readDataContext, Some bookId)
       ||> Query.getLastReadingLogByBook
-      |> Option.map _.FinalPage
+      |> Option.map (_.FinalPage >> int)
       |> ask "[bold]Initial page[/]?"
-      |> int
 
-    let finalPage = AnsiConsole.Ask<int> "[bold]Final page[/]?"
+    let finalPage = ask' "[bold]Final page[/]?"
 
-    let nextTopic =
-      AnsiConsole.Prompt(TextPrompt<string>("[bold]Next topic[/]?").AllowEmpty())
+    let nextTopic = AnsiConsole.Prompt(aTextPrompt "[bold]Next topic[/]?" |> allowEmpty)
 
     let! result =
-      Command.logReading dataContext bookId initialPage finalPage (stringOptionIfEmpty nextTopic) DateTime.UtcNow
+      Command.logReading dataContext bookId initialPage finalPage (stringIsNoneIfEmpty nextTopic) DateTime.UtcNow
 
     return result
   }
@@ -207,22 +185,20 @@ let getLastReadingLogsByBook (readDataContext: Context.ReadDataContext) : unit =
           sortByDescending readingLog.Read
           select readingLog
       }
-      |> Seq.toList
+      |> Seq.toArray
 
-    let table = Table().AddColumns("Initial page", "Final page", "Next topic", "When")
-
-    readingLogs
-    |> List.iter (fun b ->
-      let values = [|
-        b.InitialPage.ToString()
-        b.FinalPage.ToString()
-        b.NextTopic |> ValueOption.defaultValue "-"
-        b.Modified.FromSqlite |> showDateTime
-      |]
-
-      values |> table.AddRow |> ignore)
-
-    return table
+    return
+      aTable ()
+      |> addColumns [| "Initial page"; "Final page"; "Next topic"; "When" |]
+      |> addRows (
+        readingLogs
+        |> Array.map (fun b -> [|
+          b.InitialPage.ToString()
+          b.FinalPage.ToString()
+          b.NextTopic |> ValueOption.defaultValue "-"
+          b.Modified.FromSqlite |> showDateTime
+        |])
+      )
   }
   |> function
     | Ok v -> AnsiConsole.Write v

@@ -16,6 +16,7 @@
     <Compile Include="Query.fs" />
     <Compile Include="Command.fsi" />
     <Compile Include="Command.fs" />
+    <Compile Include="SpectreWrapper.fs" />
     <Compile Include="Workflow.fsi" />
     <Compile Include="Workflow.fs" />
     <Compile Include="Parser.fs" />
