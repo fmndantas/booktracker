@@ -15,12 +15,15 @@
     <Compile Include="QuerySpec.fs" />
     <Compile Include="CommandSpec.fs" />
     <Compile Include="HookSpec.fs" />
+    <Compile Include="DonaldSpec.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Donald" Version="10.1.0" />
     <PackageReference Include="Expecto" Version="10.*" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.*" />
+    <PackageReference Include="System.Data.SQLite.Core" Version="1.0.119" />
   </ItemGroup>
 
   <ItemGroup>
