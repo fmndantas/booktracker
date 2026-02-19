@@ -9,6 +9,11 @@ open CommonTypes
 open SqliteExtensions
 open SpectreWrapper
 
+type Mark = {
+  Start: string -> unit
+  End: string -> unit
+}
+
 type BookDto = {
   Title: string
   Author: string ValueOption
@@ -135,9 +140,12 @@ let createOrEditBook
     | Ok _ -> sprintf "[green] Book was saved successfully![/]" |> AnsiConsole.MarkupLine
     | Error es -> showErrors es
 
-let getBooks (dataContext: Context.ReadDataContext) : unit =
+let getBooks (dataContext: Context.ReadDataContext) (mark: Mark) : unit =
+  mark.Start "get books"
   let books = Query.getBooksOrderedByLastReadingLog dataContext |> Seq.toArray
+  mark.End "get books"
 
+  mark.Start "render table"
   aTable ()
   |> addColumns [| "Title"; "Author"; "Main topic"; "Filepath" |]
   |> addRows (
@@ -150,6 +158,8 @@ let getBooks (dataContext: Context.ReadDataContext) : unit =
     |])
   )
   |> AnsiConsole.Write
+
+  mark.End "render table"
 
 let logReading (readDataContext: Context.ReadDataContext) (dataContext: Context.DataContext) : unit =
   result {
