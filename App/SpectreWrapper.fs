@@ -49,6 +49,6 @@ module TableBuilder =
   let aTable () = Table()
   let addColumns (columns: string[]) (v: Table) = v.AddColumns columns
 
-  let addRows (rows: string[][]) (v: Table) =
-    rows |> Array.iter (fun values -> v.AddRow values |> ignore)
+  let addRows (rows: string[] seq) (v: Table) =
+    rows |> Seq.iter (fun values -> v.AddRow values |> ignore)
     v

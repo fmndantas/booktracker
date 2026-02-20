@@ -7,10 +7,10 @@ open App
 
 // TODO: parametrize
 let bookFolder = "/home/fernando/books"
-let connectionString = "DataSource=" + __SOURCE_DIRECTORY__ + "/../booktracker.db"
 
-let w = Context.getWriteContext connectionString
-let r = Context.getReadContext connectionString
+let sqliteFilepath = __SOURCE_DIRECTORY__ + "/../booktracker.db"
+
+let conn = Context.getBooktrackerConnection sqliteFilepath
 
 let parser = ArgumentParser.Create<Parser.Arguments>(programName = "booktracker")
 
@@ -20,8 +20,10 @@ let printDebug (message: string) =
   if isDebug then
     printfn "[DEBUG - %s]: %s" (DateTime.UtcNow.ToString "O") message
 
-FSharp.Data.Sql.Common.QueryEvents.SqlQueryEvent
-|> Event.add (fun e -> printDebug (sprintf "Executing SQL: %O" e))
+conn.Open()
+
+conn.Trace
+|> Event.add (fun e -> printDebug (sprintf "Executing SQL: %s" e.Statement))
 
 let createMark () =
   let timer = Diagnostics.Stopwatch.StartNew()
@@ -48,24 +50,23 @@ let main argv =
 
     externalMark.Start "workflow"
 
-    if result.Contains Parser.Arguments.Get_Books then
-      Workflow.getBooks r innerMark
+    if result.Contains Parser.Arguments.Book_Crud then
+      Workflow.bookCrud conn bookFolder innerMark
 
     if result.Contains Parser.Arguments.Get_Logs_By_Book then
-      r |> Workflow.getLastReadingLogsByBook
-
-    if result.Contains Parser.Arguments.Create_Book then
-      Workflow.createOrEditBook r w bookFolder
+      Workflow.getLastReadingLogsByBook conn innerMark
 
     if result.Contains Parser.Arguments.Log_Reading then
-      (r, w) ||> Workflow.logReading
+      Workflow.logReading conn innerMark
 
     if result.Contains Parser.Arguments.Continue_Last_Reading then
-      r |> Workflow.continueLastReading
+      Workflow.continueLastReading conn innerMark
 
     externalMark.End "workflow"
 
+    conn.Close()
     0
   with :? ArguParseException as e ->
     printf "%s" e.Message
+    conn.Close()
     1

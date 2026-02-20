@@ -1,20 +1,49 @@
 module App.Query
 
-open System.Linq
+open System
+open System.Data
 
 open CommonTypes
 
-val getBooks: dataContext: Context.ReadDataContext -> IQueryable<Context.Book>
+type Book =
+    { Id: BookId
+      Title: string
+      Author: string option
+      MainTopic: string option
+      Filepath: string option
+      Modified: DateTime }
 
-val getBookById: dataContext: Context.ReadDataContext -> BookId -> Result<Context.Book, AppError list>
+type ReadingLog =
+    { Id: ReadingLogId
+      InitialPage: int
+      FinalPage: int
+      Read: DateTime
+      NextTopic: string option
+      IdBook: BookId
+      Modified: DateTime }
 
-val getReadingLogs: dataContext: Context.ReadDataContext -> IQueryable<Context.ReadingLog>
+type Hook =
+    { Id: HookId
+      Name: string
+      Command: string }
 
-/// - Get the last reading log of a book with id `Some id`. 
+val bookFromDataReader: IDataReader -> Book
+val readingLogfromDataReader: IDataReader -> ReadingLog
+val hookFromDataReader: IDataReader -> Hook
+
+val getBooks: Context.BooktrackerConnection -> Book list
+
+val getHooks: Context.BooktrackerConnection -> Hook list
+
+val getBookById: Context.BooktrackerConnection -> BookId -> Result<Book, AppError list>
+
+val getReadingLogs: Context.BooktrackerConnection -> BookId option -> ReadingLog list
+
+/// - Get the last reading log of a book with id `Some id`.
 /// - If the id parameter is None, get the last reading log among all books.
-val getLastReadingLogByBook: dataContext: Context.ReadDataContext -> BookId option -> Context.ReadingLog option
+val getLastReadingLogByBook: Context.BooktrackerConnection -> BookId option -> ReadingLog option
 
 val getHookCommandByReadingLog:
-    dataContext: Context.ReadDataContext -> HookId -> ReadingLogId -> Result<string * string, AppError list>
+    Context.BooktrackerConnection -> HookId -> ReadingLogId -> Result<string * string, AppError list>
 
-val getBooksOrderedByLastReadingLog: dataContext: Context.ReadDataContext -> IQueryable<Context.BookByLastReadingLog>
+val getBooksOrderedByLastReadingLog: Context.BooktrackerConnection -> Book list

@@ -6,7 +6,6 @@ open System.Diagnostics
 open Spectre.Console
 
 open CommonTypes
-open SqliteExtensions
 open SpectreWrapper
 
 type Mark = {
@@ -16,19 +15,25 @@ type Mark = {
 
 type BookDto = {
   Title: string
-  Author: string ValueOption
-  MainTopic: string ValueOption
-  Filepath: string ValueOption
+  Author: string option
+  MainTopic: string option
+  Filepath: string option
 }
 
-type CreateOrEditEntity<'T> =
+type CrudResult =
   | Create
-  | Edit of 'T
+  | Edit
+  | List
+  | Delete of DeleteResult
+
+and DeleteResult =
+  | Confirmed
+  | Declined
 
 [<AutoOpen>]
 module Helpers =
-  let string2Option (evaluateAsNone: string -> bool) (s: string) : string ValueOption =
-    if evaluateAsNone s then ValueNone else ValueSome s
+  let string2Option (evaluateAsNone: string -> bool) (s: string) : string option =
+    if evaluateAsNone s then None else Some s
 
   let stringIsNoneIfEmpty = string2Option (fun s -> s.Length = 0)
 
@@ -36,52 +41,44 @@ module Helpers =
 
   let showDateTime (v: DateTime) = v.ToString "yyyy/MM/dd HH:mm:ss"
 
-  let selectBook (readDataContext: Context.ReadDataContext) : Result<BookId, AppError list> =
-    let books =
-      query {
-        for book in readDataContext |> Query.getBooksOrderedByLastReadingLog do
-          where (book.Id.IsSome && book.Title.IsSome)
-          select (book.Id.Value, book.Title.Value)
-      }
-      |> Seq.toList
+  let selectBook (conn: Context.BooktrackerConnection) : Result<BookId, AppError list> =
+    let options =
+      conn
+      |> Query.getBooksOrderedByLastReadingLog
+      |> List.map (fun x -> x.Id, x.Title)
 
-    if books.Length = 0 then
+    if options.Length = 0 then
       Error[BusinessError "You don't have any books saved"]
     else
       AnsiConsole.Prompt(
-        SelectionPrompt<int64 * string>()
+        SelectionPrompt<BookId * string>()
           .Title("[bold]Select book[/]")
           .UseConverter(snd)
-          .AddChoices(books)
+          .AddChoices(options)
           .EnableSearch()
       )
       |> (fst >> Ok)
 
-  let selectHook (readDataContext: Context.ReadDataContext) : Result<HookId, AppError list> =
-    let hooks =
-      query {
-        for hook in readDataContext.Main.Hook do
-          select (hook.Id, hook.Name)
-      }
-      |> Seq.toList
+  let selectHook (conn: Context.BooktrackerConnection) : Result<HookId, AppError list> =
+    let options = Query.getHooks conn
 
-    if hooks.Length = 0 then
+    if options.Length = 0 then
       Error[BusinessError "You don't have any hooks saved"]
     else
       AnsiConsole.Prompt(
-        SelectionPrompt<int64 * string>()
+        SelectionPrompt<HookId * string>()
           .Title("[bold]Select hook[/]")
           .UseConverter(snd)
-          .AddChoices(hooks)
+          .AddChoices(options |> List.map (fun h -> h.Id, h.Name))
           .EnableSearch()
       )
       |> (fst >> Ok)
 
-  let askBookDetails (bookFolder: string) (v: CreateOrEditEntity<Context.Book>) : BookDto =
+  let askBookDetails (bookFolder: string) (PlaceholderBook: BookDto option) : BookDto =
     let title, author, mainTopic =
-      match v with
-      | Create -> None, None, None
-      | Edit book -> Some book.Title, book.Author |> Option.ofValueOption, book.MainTopic |> Option.ofValueOption
+      match PlaceholderBook with
+      | None -> None, None, None
+      | Some book -> Some book.Title, book.Author, book.MainTopic
 
     let newTitle = ask "[bold]Title?[/]" title
 
@@ -104,111 +101,153 @@ module Helpers =
       Filepath = stringIsNoneIfHasValue noFilepath filepath
     }
 
-let createOrEditBook
-  (readDataContext: Context.ReadDataContext)
-  (dataContext: Context.DataContext)
-  (bookFolder: string)
-  : unit =
-  result {
-    let action =
-      AnsiConsole.Prompt(aSelectionPrompt' () |> addChoices [| "Create"; "Edit" |] |> enableSearch)
-
-    let! createOrEditBook =
-      match action with
-      | "Create" -> Create |> Ok
-      | "Edit" ->
-        result {
-          let! bookId = selectBook readDataContext
-          let! book = Query.getBookById readDataContext bookId
-          return Edit book
-        }
-      | _ -> failwith "Unexpected action"
-
-    AnsiConsole.MarkupLine "Enter [green]book[/] details!"
-
-    let bookDetails = askBookDetails bookFolder createOrEditBook
-
-    let createOrEditFn =
-      match createOrEditBook with
-      | Create -> Command.createBook dataContext
-      | Edit book -> Command.updateBook dataContext book.Id
-
-    return!
-      createOrEditFn bookDetails.Title bookDetails.Author bookDetails.MainTopic bookDetails.Filepath DateTime.UtcNow
-  }
-  |> function
-    | Ok _ -> sprintf "[green] Book was saved successfully![/]" |> AnsiConsole.MarkupLine
-    | Error es -> showErrors es
-
-let getBooks (dataContext: Context.ReadDataContext) (mark: Mark) : unit =
+let getBooks (conn: Context.BooktrackerConnection) (mark: Mark) : unit =
   mark.Start "get books"
-  let books = Query.getBooksOrderedByLastReadingLog dataContext |> Seq.toArray
+  let books = Query.getBooksOrderedByLastReadingLog conn
   mark.End "get books"
 
   mark.Start "render table"
+
   aTable ()
   |> addColumns [| "Title"; "Author"; "Main topic"; "Filepath" |]
   |> addRows (
     books
-    |> Array.map (fun b -> [|
-      b.Title |> ValueOption.defaultValue "-"
-      b.Author |> ValueOption.defaultValue "-"
-      b.MainTopic |> ValueOption.defaultValue "-"
-      b.Filepath |> ValueOption.defaultValue "-"
+    |> List.map (fun b -> [|
+      b.Title
+      b.Author |> Option.defaultValue "-"
+      b.MainTopic |> Option.defaultValue "-"
+      b.Filepath |> Option.defaultValue "-"
     |])
   )
   |> AnsiConsole.Write
 
   mark.End "render table"
 
-let logReading (readDataContext: Context.ReadDataContext) (dataContext: Context.DataContext) : unit =
+let bookCrud (conn: Context.BooktrackerConnection) (bookFolder: string) (mark: Mark) : unit =
   result {
-    let! bookId = selectBook readDataContext
+    let action =
+      AnsiConsole.Prompt(
+        aSelectionPrompt' ()
+        |> addChoices [| "List"; "Create"; "Edit"; "Delete" |]
+        |> enableSearch
+      )
+
+    return!
+      match action with
+      | "List" ->
+        getBooks conn mark
+        List |> Ok
+      | "Create"
+      | "Edit" ->
+        result {
+          let isCreate = action = "Create"
+
+          let! placeholderBook =
+            if isCreate then
+              Ok None
+            else
+              result {
+                let! bookId = selectBook conn
+                let! book = Query.getBookById conn bookId
+                return book |> Some
+              }
+
+          let bookDetails =
+            askBookDetails
+              bookFolder
+              (placeholderBook
+               |> Option.map (fun b -> {
+                 Title = b.Title
+                 Author = b.Author
+                 MainTopic = b.MainTopic
+                 Filepath = b.Filepath
+               }))
+
+          let createOrEditFn =
+            if isCreate then
+              Command.createBook conn
+            else
+              Command.updateBook conn placeholderBook.Value.Id
+
+          let! _ =
+            createOrEditFn
+              bookDetails.Title
+              bookDetails.Author
+              bookDetails.MainTopic
+              bookDetails.Filepath
+              DateTime.UtcNow
+
+          return if isCreate then Create else Edit
+        }
+      | "Delete" ->
+        result {
+          let! bookId = selectBook conn
+          let! book = Query.getBookById conn bookId
+
+          let confirm =
+            AnsiConsole.Confirm(
+              $"[bold yellow]Warning![/] Are you sure you want to delete [yellow]\"{book.Title}\"[/]? This will delete reading logs too!",
+              false
+            )
+
+          if confirm then
+            do! Command.deleteBook conn bookId
+            return Delete Confirmed
+          else
+            return Delete Declined
+        }
+      | _ -> failwith "TODO"
+  }
+  |> function
+    | Ok(Create | Edit) -> AnsiConsole.MarkupLine "[green]Book was saved successfully![/]"
+    | Ok(Delete Confirmed) -> AnsiConsole.MarkupLine "[green]Book was deleted successfully![/]"
+    | Ok _ -> ()
+    | Error es -> showErrors es
+
+let logReading (conn: Context.BooktrackerConnection) (mark: Mark) : unit =
+  result {
+    let! bookId = selectBook conn
 
     let initialPage =
-      (readDataContext, Some bookId)
+      (conn, Some bookId)
       ||> Query.getLastReadingLogByBook
       |> Option.map (_.FinalPage >> int)
       |> ask "[bold]Initial page[/]?"
 
     let finalPage = ask' "[bold]Final page[/]?"
-
     let nextTopic = AnsiConsole.Prompt(aTextPrompt "[bold]Next topic[/]?" |> allowEmpty)
 
-    let! result =
-      Command.logReading dataContext bookId initialPage finalPage (stringIsNoneIfEmpty nextTopic) DateTime.UtcNow
-
-    return result
+    return! Command.logReading conn bookId initialPage finalPage (stringIsNoneIfEmpty nextTopic) DateTime.UtcNow
   }
   |> function
     | Ok _ -> AnsiConsole.MarkupLine "[green]Reading log was saved successfully![/]"
     | Error es -> showErrors es
 
-let getLastReadingLogsByBook (readDataContext: Context.ReadDataContext) : unit =
+let getLastReadingLogsByBook (conn: Context.BooktrackerConnection) (mark: Mark) : unit =
   result {
-    let! bookId = selectBook readDataContext
+    let! bookId = selectBook conn
 
-    let readingLogs =
-      query {
-        for readingLog in readDataContext |> Query.getReadingLogs do
-          where (readingLog.IdBook = bookId)
-          sortByDescending readingLog.Read
-          select readingLog
-      }
-      |> Seq.toArray
+    mark.Start "get reading logs"
+    let readingLogs = Query.getReadingLogs conn (Some bookId)
+    mark.End "get reading logs"
 
-    return
+    mark.Start "table preparing"
+
+    let table =
       aTable ()
       |> addColumns [| "Initial page"; "Final page"; "Next topic"; "When" |]
       |> addRows (
         readingLogs
-        |> Array.map (fun b -> [|
+        |> List.map (fun b -> [|
           b.InitialPage.ToString()
           b.FinalPage.ToString()
-          b.NextTopic |> ValueOption.defaultValue "-"
-          b.Modified.FromSqlite |> showDateTime
+          b.NextTopic |> Option.defaultValue "-"
+          b.Modified |> showDateTime
         |])
       )
+
+    mark.End "table preparing"
+    return table
   }
   |> function
     | Ok v -> AnsiConsole.Write v
@@ -237,17 +276,20 @@ let spawnProcess (command: string * string) : Result<unit, AppError list> =
   with ex ->
     Error [ HookError ex.Message ]
 
-let continueLastReading (readDataContext: Context.ReadDataContext) : unit =
+let continueLastReading (conn: Context.BooktrackerConnection) (mark: Mark) : unit =
   result {
-    let! hookId = selectHook readDataContext
-    let! bookId = selectBook readDataContext
+    let! hookId = selectHook conn
+    let! bookId = selectBook conn
 
     let! readingLog =
-      match Query.getLastReadingLogByBook readDataContext (Some bookId) with
-      | Some readingLog -> readingLog |> Ok
+      match Query.getLastReadingLogByBook conn (Some bookId) with
+      | Some readingLog -> Ok readingLog
       | None -> Error[BusinessError "No reading logs found for this book"]
 
-    let! command = Query.getHookCommandByReadingLog readDataContext hookId readingLog.Id
+    mark.Start "get filled hook"
+    let! command = Query.getHookCommandByReadingLog conn hookId readingLog.Id
+    mark.End "get filled hook"
+
     let! _ = spawnProcess command
 
     return readingLog.NextTopic
@@ -255,5 +297,5 @@ let continueLastReading (readDataContext: Context.ReadDataContext) : unit =
   |> function
     | Ok v ->
       v
-      |> ValueOption.iter (sprintf "Next topic: [green]\"%s\"[/]" >> AnsiConsole.MarkupLine)
+      |> Option.iter (sprintf "Next topic: [green]\"%s\"[/]" >> AnsiConsole.MarkupLine)
     | Error es -> showErrors es

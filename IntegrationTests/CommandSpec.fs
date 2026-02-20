@@ -5,27 +5,25 @@ open System
 open Expecto
 open Expecto.Flip.Expect
 
+open Donald
+
 open App
-open App.SqliteExtensions
 
 module Sut = Command
 
 let ``it creates a book`` =
-  testCase "it creates a book"
-  <| fun () ->
+  "it creates a book",
+  fun conn ->
     // arrange
-    let w, r = Utils.getTestDataContexts ()
-    do Utils.cleanDatabase w
-
     let title, author, mainTopic, filepath, now =
       Utils.random5String (), Utils.random5String (), Utils.random5String (), Utils.random5String (), DateTime.UtcNow
 
     // act
     let result =
-      Sut.createBook w title (ValueSome author) (ValueSome mainTopic) (ValueSome filepath) now
+      Sut.createBook conn title (Some author) (Some mainTopic) (Some filepath) now
 
     // assert
-    let savedBooks = Query.getBooks r |> Seq.toList
+    let savedBooks = Query.getBooks conn
 
     savedBooks |> hasLength "no book was saved" 1
 
@@ -34,26 +32,21 @@ let ``it creates a book`` =
     |> fun savedBookId ->
         let head = savedBooks.Head
         let actual = head.Id, head.Title, head.Author, head.Filepath, head.Modified
-
-        let expected =
-          savedBookId, title, ValueSome author, ValueSome filepath, now.ToSqlite
-
+        let expected = savedBookId, title, Some author, Some filepath, now
         actual |> equal "wrong book" expected
 
 let ``it updates a book`` =
-  testCase "it updates a book"
-  <| fun () ->
-    let w, r = Utils.getTestDataContexts ()
-    Utils.cleanDatabase w
-    let createdBook = Utils.createRandomBook w
+  "it updates a book",
+  fun conn ->
+    let createdBook = Utils.createRandomBook conn
 
     let title, author, mainTopic, filepath, now =
       Utils.random5String (), Utils.random5String (), Utils.random5String (), Utils.random5String (), DateTime.UtcNow
 
     let result =
-      Sut.updateBook w createdBook.Id title (ValueSome author) (ValueSome mainTopic) (ValueSome filepath) now
+      Sut.updateBook conn createdBook.Id title (Some author) (Some mainTopic) (Some filepath) now
 
-    let savedBooks = Query.getBooks r |> Seq.toList
+    let savedBooks = Query.getBooks conn
     savedBooks |> hasLength "number of saved books should be 1" 1
 
     result
@@ -61,34 +54,58 @@ let ``it updates a book`` =
     |> fun savedBookId ->
         let head = savedBooks.Head
         let actual = head.Id, head.Title, head.Author, head.Filepath, head.Modified
-
-        let expected =
-          savedBookId, title, ValueSome author, ValueSome filepath, now.ToSqlite
-
+        let expected = savedBookId, title, Some author, Some filepath, now
         actual |> equal "wrong book" expected
 
+let ``it deletes a book`` =
+  "it deletes a book",
+  fun conn ->
+    let createdBook = Utils.createRandomBook conn
+
+    for _ in [ 1..10 ] do
+      Command.logReading
+        conn
+        createdBook.Id
+        (Utils.randomInt1_10 ())
+        (Utils.randomInt1_10 ())
+        (Utils.random5String () |> Some)
+        DateTime.UtcNow
+      |> ignore
+
+    let count =
+      fun conn ->
+        conn
+        |> Db.newCommand "select count(*) as cnt from reading_log where id_book = @id_book"
+        |> Db.setParams [ "id_book", sqlInt64 createdBook.Id ]
+        |> Db.querySingle (fun rd -> rd.ReadInt64 "cnt")
+        |> Option.get
+
+    count conn |> equal "wrong before count" 10
+
+    let _ = Command.deleteBook conn createdBook.Id
+
+    count conn |> equal "wrong after count" 0
+
 let ``it logs reading for a book`` =
-  testCase "it logs reading for a book"
-  <| fun () ->
+  "it logs reading for a book",
+  fun conn ->
     // arrange
-    let w, r = Utils.getTestDataContexts ()
-    Utils.cleanDatabase w
-    let newBook = Utils.createRandomBook w
+    let newBook = Utils.createRandomBook conn
 
     let now = DateTime.UtcNow
 
     // act
     let! result =
       Sut.logReading
-        w
+        conn
         newBook.Id
         (Utils.randomInt1_10 ())
         (Utils.randomInt1_10 ())
-        (Utils.random5String () |> ValueSome)
+        (Utils.random5String () |> Some)
         now
 
     // assert
-    let readingLogs = Query.getReadingLogs r |> Seq.toList
+    let readingLogs = Query.getReadingLogs conn None
     readingLogs |> hasLength "no reading log was saved" 1
 
     result
@@ -98,29 +115,32 @@ let ``it logs reading for a book`` =
         savedReadingLog |> equal "objects are different" expected.Id
 
 let ``it returns error if a log is created with a book that does not exists`` =
-  testCase "it returns error if a log is created with a book that does not exists"
-  <| fun () ->
-    let w, _ = Utils.getTestDataContexts ()
-    Utils.cleanDatabase w
-
+  "it returns error if a log is created with a book that does not exists",
+  fun conn ->
     let! result =
       Sut.logReading
-        w
+        conn
         1000L
         (Utils.randomInt1_10 ())
         (Utils.randomInt1_10 ())
-        (Utils.random5String () |> ValueSome)
+        (Utils.random5String () |> Some)
         DateTime.UtcNow
 
     result
     |> wantError "result should be an error"
-    |> contains "does not have expected error" (CommonTypes.AppError.BusinessError "Log points to inexistent book")
+    |> contains
+      "does not have expected error"
+      (CommonTypes.AppError.BusinessError $"Book with id {1000} does not exists")
 
 [<Tests>]
 let commandSpec =
   testList "command" [
-    ``it creates a book``
-    ``it updates a book``
-    ``it returns error if a log is created with a book that does not exists``
-    ``it logs reading for a book``
+    yield!
+      testFixture Utils.memoryDbFixture [
+        ``it creates a book``
+        ``it updates a book``
+        ``it deletes a book``
+        ``it returns error if a log is created with a book that does not exists``
+        ``it logs reading for a book``
+      ]
   ]

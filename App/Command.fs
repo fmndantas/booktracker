@@ -2,78 +2,117 @@ module App.Command
 
 open System
 
-open SqliteExtensions
+open Donald
 
 open App.CommonTypes
 
+type Book = {
+  Title: string
+  Author: string option
+  MainTopic: string option
+  Filepath: string option
+}
+
 let createBook
-  (dataContext: Context.DataContext)
+  (conn: Context.BooktrackerConnection)
   (title: string)
-  (author: string ValueOption)
-  (mainTopic: string ValueOption)
-  (filepath: string ValueOption)
-  (modified: DateTime)
+  (author: string option)
+  (mainTopic: string option)
+  (filepath: string option)
+  (now: DateTime)
   : Result<BookId, AppError list> =
-  let contextBook: Context.Book = dataContext.Main.Book.Create()
-  contextBook.Title <- title
-  contextBook.Author <- author
-  contextBook.MainTopic <- mainTopic
-  contextBook.Filepath <- filepath
-  contextBook.Modified <- modified.ToSqlite
-  dataContext.SubmitUpdates()
-  Ok contextBook.Id
+  conn
+  |> Db.newCommand
+    "
+    insert into book (title, author, main_topic, filepath, modified)
+    values (@title, @author, @main_topic, @filepath, @now)
+    returning id
+    "
+  |> Db.setParams [
+    "title", sqlString title
+    "author", sqlStringOrNull author
+    "main_topic", sqlStringOrNull mainTopic
+    "filepath", sqlStringOrNull filepath
+    "now", sqlDateTime now
+  ]
+  |> Db.querySingle (fun rd -> rd.ReadInt64 "id")
+  |> function
+    | Some id -> Ok id
+    | None -> Error [ DatabaseError "Book was not created" ]
+
+let bookExists (conn: Context.BooktrackerConnection) (bookId: BookId) : bool =
+  conn
+  |> Db.newCommand "select id from book where id = @id"
+  |> Db.setParams [ "id", sqlInt64 bookId ]
+  |> Db.querySingle (fun rd -> rd.ReadInt64 "id")
+  |> Option.isSome
 
 let updateBook
-  (dataContext: Context.DataContext)
+  (conn: Context.BooktrackerConnection)
   (bookId: BookId)
   (title: string)
-  (author: string ValueOption)
-  (mainTopic: string ValueOption)
-  (filepath: string ValueOption)
-  (modified: DateTime)
+  (author: string option)
+  (mainTopic: string option)
+  (filepath: string option)
+  (now: DateTime)
   : Result<BookId, AppError list> =
-  let bookOption =
-    query {
-      for book in dataContext.Main.Book do
-        where (book.Id = bookId)
-        select (Some book)
-        exactlyOneOrDefault
-    }
+  if bookExists conn bookId |> not then
+    Error [ BusinessError(sprintf "Book with id %d does not exists" bookId) ]
+  else
+    conn
+    |> Db.newCommand
+      "
+      update book set 
+      title = @title, author = @author, main_topic = @main_topic, filepath = @filepath, modified = @now
+      where id = @id
+      "
+    |> Db.setParams [
+      "id", sqlInt64 bookId
+      "title", sqlString title
+      "author", sqlStringOrNull author
+      "main_topic", sqlStringOrNull mainTopic
+      "filepath", sqlStringOrNull filepath
+      "now", sqlDateTime now
+    ]
+    |> Db.exec
 
-  match bookOption with
-  | Some book ->
-    book.Title <- title
-    book.Author <- author
-    book.MainTopic <- mainTopic
-    book.Filepath <- filepath
-    book.Modified <- modified.ToSqlite
-    dataContext.SubmitUpdates()
-    Ok book.Id
-  | None -> Error [ DatabaseError(sprintf "Book with id %d does not exists" bookId) ]
+    Ok bookId
+
+let deleteBook (conn: Context.BooktrackerConnection) (bookId: BookId) : Result<unit, AppError list> =
+  conn
+  |> Db.newCommand
+    "delete from reading_log where id_book = @id_book; delete from book where id = @id_book;"
+  |> Db.setParams [ "id_book", sqlInt64 bookId ]
+  |> Db.exec
+  |> Ok
 
 let logReading
-  (dataContext: Context.DataContext)
+  (conn: Context.BooktrackerConnection)
   (bookId: BookId)
   (initialPage: int)
   (finalPage: int)
-  (nextTopic: string ValueOption)
+  (nextTopic: string option)
   (now: DateTime)
   : Result<ReadingLogId, AppError list> =
-  let bookExists =
-    query {
-      for book in dataContext.Main.Book do
-        exists (book.Id = bookId)
-    }
-
-  if bookExists then
-    let contextReadingLog = dataContext.Main.ReadingLog.Create()
-    contextReadingLog.IdBook <- bookId
-    contextReadingLog.InitialPage <- initialPage
-    contextReadingLog.FinalPage <- finalPage
-    contextReadingLog.NextTopic <- nextTopic
-    contextReadingLog.Read <- now.ToSqlite
-    contextReadingLog.Modified <- now.ToSqlite
-    dataContext.SubmitUpdates()
-    Ok contextReadingLog.Id
+  if bookExists conn bookId |> not then
+    Error [ BusinessError(sprintf "Book with id %d does not exists" bookId) ]
   else
-    Error [ AppError.BusinessError "Log points to inexistent book" ]
+    conn
+    |> Db.newCommand
+      "
+      insert into reading_log
+      (id_book, initial_page, final_page, read, modified, next_topic)
+      values (@id_book, @initial_page, @final_page, @now, @now, @next_topic)
+      returning id
+      "
+    |> Db.setParams [
+      "id_book", sqlInt64 bookId
+      "initial_page", sqlInt64 initialPage
+      "final_page", sqlInt64 finalPage
+      "next_topic", sqlStringOrNull nextTopic
+      "now", sqlDateTime now
+    ]
+    |> Db.querySingle (fun rd -> rd.ReadInt64 "id")
+    |> function
+      | Some id -> Ok id
+      | _ -> Error [ DatabaseError "Reading log was not created" ]

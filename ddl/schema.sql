@@ -1,4 +1,4 @@
-create table book (
+create table if not exists book (
     id integer primary key asc not null,
     title string not null,
     author string,
@@ -7,7 +7,7 @@ create table book (
     modified string not null
 );
 
-create table reading_log (
+create table if not exists reading_log (
     id integer primary key asc not null,
     id_book integer not null,
     initial_page integer not null,
@@ -16,6 +16,12 @@ create table reading_log (
     modified string not null,
     next_topic string,
     FOREIGN KEY(id_book) REFERENCES book(id)
+);
+
+create table if not exists hook (
+    id integer primary key asc not null,
+    name string not null,
+    command string not null
 );
 
 create view if not exists book_by_last_reading_log as

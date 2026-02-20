@@ -5,36 +5,28 @@ open System
 open Expecto
 open Expecto.Flip.Expect
 
+open Donald
+
 open App
-open App.SqliteExtensions
 
 let ``it gets books`` =
-  testCase "it get books"
-  <| fun () ->
-    // arrange
-    let w, r = Utils.getTestDataContexts ()
-    Utils.cleanDatabase w
-    let! newBook = Utils.createRandomBook w
-
-    // act
-    let result = Query.getBooks r |> Seq.toList
-
-    // assert
+  "it get books",
+  fun (conn: Context.BooktrackerConnection) ->
+    let! newBook = Utils.createRandomBook conn
+    let result = Query.getBooks conn
     result |> hasLength "wrong result length" 1
-    let book0 = result[0]
-    book0.Title |> equal "wrong result" newBook.Title
+    let book0 = result.Head
+    book0.Title |> equal "wrong title" newBook.Title
 
 let ``it gets the last reading log`` =
-  testCase "it gets the last reading log"
-  <| fun () ->
+  "it gets the last reading log",
+  fun (conn: Context.BooktrackerConnection) ->
     // arrange
-    let w, r = Utils.getTestDataContexts ()
-    Utils.cleanDatabase w
-    let! book = Utils.createRandomBook w
+    let! book = Utils.createRandomBook conn
     let now = DateTime.UtcNow
 
     let createLogReading =
-      Command.logReading w book.Id (Utils.randomInt 1 100) (Utils.randomInt 1 100) ValueNone
+      Command.logReading conn book.Id (Utils.randomInt 1 100) (Utils.randomInt 1 100) None
 
     let! _ = createLogReading (now.AddDays -2)
     let! _ = createLogReading (now.AddDays -1)
@@ -42,39 +34,34 @@ let ``it gets the last reading log`` =
     let! _ = createLogReading now
 
     // act
-    let result = Query.getLastReadingLogByBook r None
+    let result = Query.getLastReadingLogByBook conn None
 
     // assert
     result
     |> wantSome "result should be some"
-    |> fun lastReadingLog ->
-        (lastReadingLog.IdBook, lastReadingLog.Read.FromSqlite)
+    |> fun readingLog ->
+        (readingLog.IdBook, readingLog.Read)
         |> equal "reading log is incorrect" (book.Id, now)
 
 let ``it returns None when no last reading log exists`` =
-  testCase "it returns None when no last reading log exists"
-  <| fun () ->
-    let w, r = Utils.getTestDataContexts ()
-    Utils.cleanDatabase w
-    let result = Query.getLastReadingLogByBook r None
+  "it returns None when no last reading log exists",
+  fun (conn: Context.BooktrackerConnection) ->
+    let result = Query.getLastReadingLogByBook conn None
     result |> isNone "result should be None"
 
 let ``it returns hook command filled with book data`` =
-  testCase "it returns hook command filled with book data"
-  <| fun () ->
+  "it returns hook command filled with book data",
+  fun (conn: Context.BooktrackerConnection) ->
     // arrange
-    let w, r = Utils.getTestDataContexts ()
-    Utils.cleanDatabase w
-
-    let! book = Utils.createRandomBook w
+    let! book = Utils.createRandomBook conn
 
     let! readingLogIdResult =
       Command.logReading
-        w
+        conn
         book.Id
         (Utils.randomInt 1 100)
         (Utils.randomInt 1 100)
-        (Utils.random5String () |> ValueSome)
+        (Utils.random5String () |> Some)
         DateTime.UtcNow
 
     let readingLogId =
@@ -83,21 +70,31 @@ let ``it returns hook command filled with book data`` =
       | Error _ -> failtest "readingLog should be ok"
 
     let readingLog =
-      query {
-        for log in r.Main.ReadingLog do
-          head
-      }
+      conn
+      |> Db.newCommand "select * from reading_log"
+      |> Db.querySingle Query.readingLogfromDataReader
+      |> Option.get
 
     let hook =
-      w.Main.Hook.``Create(command, name)`` (
-        "sioyek {{filepath}} --initial-page {{initial-page}} --final-page {{final-page}} --next-topic {{next-topic}}",
-        Utils.random5String ()
-      )
+      conn
+      |> Db.newCommand
+        "
+        insert into hook (name, command) values (@name, @command);
 
-    w.SubmitUpdates()
+        select * from hook
+        where hook.id = last_insert_rowid();
+        "
+      |> Db.setParams [
+        "name", Utils.random5String () |> sqlString
+        "command",
+        sqlString
+          "sioyek {{filepath}} --initial-page {{initial-page}} --final-page {{final-page}} --next-topic {{next-topic}}"
+      ]
+      |> Db.querySingle Query.hookFromDataReader
+      |> Option.get
 
     // act
-    let result = Query.getHookCommandByReadingLog r hook.Id readingLogId
+    let result = Query.getHookCommandByReadingLog conn hook.Id readingLogId
 
     // assert
     result
@@ -115,8 +112,11 @@ let ``it returns hook command filled with book data`` =
 [<Tests>]
 let querySpec =
   testList "query" [
-    ``it gets books``
-    ``it gets the last reading log``
-    ``it returns None when no last reading log exists``
-    ``it returns hook command filled with book data``
+    yield!
+      testFixture Utils.memoryDbFixture [
+        ``it gets books``
+        ``it gets the last reading log``
+        ``it returns None when no last reading log exists``
+        ``it returns hook command filled with book data``
+      ]
   ]

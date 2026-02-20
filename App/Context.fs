@@ -1,29 +1,8 @@
 module App.Context
 
-open FSharp.Data.Sql
+type BooktrackerConnection = System.Data.SQLite.SQLiteConnection
 
-[<Literal>]
-let dummyDbConnectionString =
-  "DataSource=" + __SOURCE_DIRECTORY__ + "/../ddl/dummy.db"
+type BooktrackerTransaction = System.Data.IDbTransaction
 
-type SQL =
-  SQLite.SqlDataProvider<
-    DatabaseVendor=Common.DatabaseProviderTypes.SQLITE,
-    SQLiteLibrary=Common.SQLiteLibrary.MicrosoftDataSqlite,
-    ConnectionString=dummyDbConnectionString,
-    CaseSensitivityChange=Common.CaseSensitivityChange.ORIGINAL,
-    UseOptionTypes=Common.NullableColumnType.VALUE_OPTION
-   >
-
-type DataContext = SQL.dataContext
-type ReadDataContext = SQL.readDataContext
-
-type Book = DataContext.``main.bookEntity``
-type ReadingLog = DataContext.``main.reading_logEntity``
-type Hook = DataContext.``main.hookEntity``
-type BookByLastReadingLog = DataContext.``main.book_by_last_reading_logEntity``
-
-let getReadContext (connectionSting: string) : ReadDataContext =
-  SQL.GetReadOnlyDataContext connectionSting
-
-let getWriteContext (connectionString: string) : DataContext = SQL.GetDataContext connectionString
+let getBooktrackerConnection (sqliteFilepath: string) =
+  new BooktrackerConnection $"Data Source={sqliteFilepath};Version=3"
