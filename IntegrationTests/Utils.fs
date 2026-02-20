@@ -1,16 +1,32 @@
 module IntegrationTests.Utils
 
 open System
+open System.IO
+open System.Data
 
 open Donald
 
 open App
 
-// TODO: Move to memory.
-// Reference: https://github.com/pimbrouwers/Donald/blob/master/test/Donald.Tests/Tests.fs
-let getTestBooktrackerConnection () =
-  let path = __SOURCE_DIRECTORY__ + "/../ddl/dummy.db"
-  new Context.BooktrackerConnection $"Data Source={path};Version=3"
+let private ddlDirectory =
+  Path.Combine [| __SOURCE_DIRECTORY__ |> Directory.GetParent |> _.FullName; "ddl" |]
+
+let private schema = Path.Combine [| ddlDirectory; "schema.sql" |]
+
+let testFixture f () =
+  let conn = Context.getBooktrackerConnection ":memory:"
+  use fs = File.OpenRead schema
+  use sr = new StreamReader(fs)
+  let sql = sr.ReadToEnd()
+
+  conn
+  |> Db.newCommand sql
+  |> Db.setTimeout 30
+  |> Db.setCommandType CommandType.Text
+  |> Db.exec
+  |> ignore
+
+  f conn
 
 let randomString (size: int) : string =
   let letters = [ 'a' .. 'z' ]
@@ -25,15 +41,6 @@ let random5String () = randomString 5
 let randomInt a b = Random().Next(a, b)
 
 let randomInt1_10 () = randomInt 1 10
-
-let cleanDatabase (conn: Context.BooktrackerConnection) =
-  let sql =
-    "
-    delete from reading_log where id >= 0;  
-    delete from book where id >= 0;  
-  "
-
-  conn |> Db.newCommand sql |> Db.exec
 
 let createRandomBook (conn: Context.BooktrackerConnection) : Query.Book =
   let book =

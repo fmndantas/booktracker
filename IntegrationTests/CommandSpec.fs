@@ -10,12 +10,9 @@ open App
 module Sut = Command
 
 let ``it creates a book`` =
-  testCase "it creates a book"
-  <| fun () ->
+  "it creates a book",
+  fun conn ->
     // arrange
-    let conn = Utils.getTestBooktrackerConnection ()
-    Utils.cleanDatabase conn
-
     let title, author, mainTopic, filepath, now =
       Utils.random5String (), Utils.random5String (), Utils.random5String (), Utils.random5String (), DateTime.UtcNow
 
@@ -40,10 +37,8 @@ let ``it creates a book`` =
         actual |> equal "wrong book" expected
 
 let ``it updates a book`` =
-  testCase "it updates a book"
-  <| fun () ->
-    let conn = Utils.getTestBooktrackerConnection ()
-    Utils.cleanDatabase conn
+  "it updates a book",
+  fun conn ->
     let createdBook = Utils.createRandomBook conn
 
     let title, author, mainTopic, filepath, now =
@@ -64,11 +59,9 @@ let ``it updates a book`` =
         actual |> equal "wrong book" expected
 
 let ``it logs reading for a book`` =
-  testCase "it logs reading for a book"
-  <| fun () ->
+  "it logs reading for a book",
+  fun conn ->
     // arrange
-    let conn = Utils.getTestBooktrackerConnection ()
-    Utils.cleanDatabase conn
     let newBook = Utils.createRandomBook conn
 
     let now = DateTime.UtcNow
@@ -94,11 +87,8 @@ let ``it logs reading for a book`` =
         savedReadingLog |> equal "objects are different" expected.Id
 
 let ``it returns error if a log is created with a book that does not exists`` =
-  testCase "it returns error if a log is created with a book that does not exists"
-  <| fun () ->
-    let conn = Utils.getTestBooktrackerConnection ()
-    Utils.cleanDatabase conn
-
+  "it returns error if a log is created with a book that does not exists",
+  fun conn ->
     let! result =
       Sut.logReading
         conn
@@ -117,8 +107,11 @@ let ``it returns error if a log is created with a book that does not exists`` =
 [<Tests>]
 let commandSpec =
   testList "command" [
-    ``it creates a book``
-    ``it updates a book``
-    ``it returns error if a log is created with a book that does not exists``
-    ``it logs reading for a book``
+    yield!
+      testFixture Utils.testFixture [
+        ``it creates a book``
+        ``it updates a book``
+        ``it returns error if a log is created with a book that does not exists``
+        ``it logs reading for a book``
+      ]
   ]

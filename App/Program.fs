@@ -23,8 +23,8 @@ let printDebug (message: string) =
   if isDebug then
     printfn "[DEBUG - %s]: %s" (DateTime.UtcNow.ToString "O") message
 
-FSharp.Data.Sql.Common.QueryEvents.SqlQueryEvent
-|> Event.add (fun e -> printDebug (sprintf "Executing SQL: %O" e))
+// FSharp.Data.Sql.Common.QueryEvents.SqlQueryEvent
+// |> Event.add (fun e -> printDebug (sprintf "Executing SQL: %O" e))
 
 let createMark () =
   let timer = Diagnostics.Stopwatch.StartNew()

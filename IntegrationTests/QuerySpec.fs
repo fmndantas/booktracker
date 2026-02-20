@@ -10,27 +10,18 @@ open Donald
 open App
 
 let ``it gets books`` =
-  testCase "it get books"
-  <| fun () ->
-    // arrange
-    let conn = Utils.getTestBooktrackerConnection ()
-    Utils.cleanDatabase conn
+  "it get books",
+  fun (conn: Context.BooktrackerConnection) ->
     let! newBook = Utils.createRandomBook conn
-
-    // act
     let result = Query.getBooks conn
-
-    // assert
     result |> hasLength "wrong result length" 1
     let book0 = result.Head
     book0.Title |> equal "wrong title" newBook.Title
 
 let ``it gets the last reading log`` =
-  testCase "it gets the last reading log"
-  <| fun () ->
+  "it gets the last reading log",
+  fun (conn: Context.BooktrackerConnection) ->
     // arrange
-    let conn = Utils.getTestBooktrackerConnection ()
-    Utils.cleanDatabase conn
     let! book = Utils.createRandomBook conn
     let now = DateTime.UtcNow
 
@@ -53,20 +44,15 @@ let ``it gets the last reading log`` =
         |> equal "reading log is incorrect" (book.Id, now)
 
 let ``it returns None when no last reading log exists`` =
-  testCase "it returns None when no last reading log exists"
-  <| fun () ->
-    let conn = Utils.getTestBooktrackerConnection ()
-    Utils.cleanDatabase conn
+  "it returns None when no last reading log exists",
+  fun (conn: Context.BooktrackerConnection) ->
     let result = Query.getLastReadingLogByBook conn None
     result |> isNone "result should be None"
 
 let ``it returns hook command filled with book data`` =
-  testCase "it returns hook command filled with book data"
-  <| fun () ->
+  "it returns hook command filled with book data",
+  fun (conn: Context.BooktrackerConnection) ->
     // arrange
-    let conn = Utils.getTestBooktrackerConnection ()
-    Utils.cleanDatabase conn
-
     let! book = Utils.createRandomBook conn
 
     let! readingLogIdResult =
@@ -126,8 +112,11 @@ let ``it returns hook command filled with book data`` =
 [<Tests>]
 let querySpec =
   testList "query" [
-    ``it gets books``
-    ``it gets the last reading log``
-    ``it returns None when no last reading log exists``
-    ``it returns hook command filled with book data``
+    yield!
+      testFixture Utils.testFixture [
+        ``it gets books``
+        ``it gets the last reading log``
+        ``it returns None when no last reading log exists``
+        ``it returns hook command filled with book data``
+      ]
   ]

@@ -18,6 +18,12 @@ create table reading_log (
     FOREIGN KEY(id_book) REFERENCES book(id)
 );
 
+create table hook (
+    id integer primary key asc not null,
+    name string not null,
+    command string not null
+);
+
 create view if not exists book_by_last_reading_log as
 select distinct a.* 
     from book a 
