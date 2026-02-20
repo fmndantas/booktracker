@@ -20,9 +20,15 @@ type BookDto = {
   Filepath: string option
 }
 
-type CreateOrEditEntity<'T> =
+type CrudResult =
   | Create
-  | Edit of 'T
+  | Edit
+  | List
+  | Delete of DeleteResult
+
+and DeleteResult =
+  | Confirmed
+  | Declined
 
 [<AutoOpen>]
 module Helpers =
@@ -68,11 +74,11 @@ module Helpers =
       )
       |> (fst >> Ok)
 
-  let askBookDetails (bookFolder: string) (v: CreateOrEditEntity<BookDto>) : BookDto =
+  let askBookDetails (bookFolder: string) (PlaceholderBook: BookDto option) : BookDto =
     let title, author, mainTopic =
-      match v with
-      | Create -> None, None, None
-      | Edit book -> Some book.Title, book.Author, book.MainTopic
+      match PlaceholderBook with
+      | None -> None, None, None
+      | Some book -> Some book.Title, book.Author, book.MainTopic
 
     let newTitle = ask "[bold]Title?[/]" title
 
@@ -95,52 +101,6 @@ module Helpers =
       Filepath = stringIsNoneIfHasValue noFilepath filepath
     }
 
-let createOrEditBook (conn: Context.BooktrackerConnection) (bookFolder: string) (mark: Mark) : unit =
-  result {
-    let action =
-      AnsiConsole.Prompt(aSelectionPrompt' () |> addChoices [| "Create"; "Edit" |] |> enableSearch)
-
-    let! createOrEditBook =
-      match action with
-      | "Create" -> Create |> Ok
-      | "Edit" ->
-        result {
-          let! bookId = selectBook conn
-          let! book = Query.getBookById conn bookId
-
-          return
-            (bookId,
-             {
-               Title = book.Title
-               Author = book.Author
-               MainTopic = book.MainTopic
-               Filepath = book.Filepath
-             })
-            |> Edit
-        }
-      | _ -> failwith "Unexpected action"
-
-    AnsiConsole.MarkupLine "Enter [green]book[/] details!"
-
-    let bookDetails =
-      askBookDetails
-        bookFolder
-        (match createOrEditBook with
-         | Create -> Create
-         | Edit v -> v |> snd |> Edit)
-
-    let createOrEditFn =
-      match createOrEditBook with
-      | Create -> Command.createBook conn
-      | Edit(bookId, _) -> Command.updateBook conn bookId
-
-    return!
-      createOrEditFn bookDetails.Title bookDetails.Author bookDetails.MainTopic bookDetails.Filepath DateTime.UtcNow
-  }
-  |> function
-    | Ok _ -> sprintf "[green] Book was saved successfully![/]" |> AnsiConsole.MarkupLine
-    | Error es -> showErrors es
-
 let getBooks (conn: Context.BooktrackerConnection) (mark: Mark) : unit =
   mark.Start "get books"
   let books = Query.getBooksOrderedByLastReadingLog conn
@@ -162,6 +122,87 @@ let getBooks (conn: Context.BooktrackerConnection) (mark: Mark) : unit =
   |> AnsiConsole.Write
 
   mark.End "render table"
+
+let bookCrud (conn: Context.BooktrackerConnection) (bookFolder: string) (mark: Mark) : unit =
+  result {
+    let action =
+      AnsiConsole.Prompt(
+        aSelectionPrompt' ()
+        |> addChoices [| "List"; "Create"; "Edit"; "Delete" |]
+        |> enableSearch
+      )
+
+    return!
+      match action with
+      | "List" ->
+        getBooks conn mark
+        List |> Ok
+      | "Create"
+      | "Edit" ->
+        result {
+          let isCreate = action = "Create"
+
+          let! placeholderBook =
+            if isCreate then
+              Ok None
+            else
+              result {
+                let! bookId = selectBook conn
+                let! book = Query.getBookById conn bookId
+                return book |> Some
+              }
+
+          let bookDetails =
+            askBookDetails
+              bookFolder
+              (placeholderBook
+               |> Option.map (fun b -> {
+                 Title = b.Title
+                 Author = b.Author
+                 MainTopic = b.MainTopic
+                 Filepath = b.Filepath
+               }))
+
+          let createOrEditFn =
+            if isCreate then
+              Command.createBook conn
+            else
+              Command.updateBook conn placeholderBook.Value.Id
+
+          let! _ =
+            createOrEditFn
+              bookDetails.Title
+              bookDetails.Author
+              bookDetails.MainTopic
+              bookDetails.Filepath
+              DateTime.UtcNow
+
+          return if isCreate then Create else Edit
+        }
+      | "Delete" ->
+        result {
+          let! bookId = selectBook conn
+          let! book = Query.getBookById conn bookId
+
+          let confirm =
+            AnsiConsole.Confirm(
+              $"[bold yellow]Warning![/] Are you sure you want to delete [yellow]\"{book.Title}\"[/]? This will delete reading logs too!",
+              false
+            )
+
+          if confirm then
+            do! Command.deleteBook conn bookId
+            return Delete Confirmed
+          else
+            return Delete Declined
+        }
+      | _ -> failwith "TODO"
+  }
+  |> function
+    | Ok(Create | Edit) -> AnsiConsole.MarkupLine "[green]Book was saved successfully![/]"
+    | Ok(Delete Confirmed) -> AnsiConsole.MarkupLine "[green]Book was deleted successfully![/]"
+    | Ok _ -> ()
+    | Error es -> showErrors es
 
 let logReading (conn: Context.BooktrackerConnection) (mark: Mark) : unit =
   result {

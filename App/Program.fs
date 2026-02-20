@@ -51,14 +51,11 @@ let main argv =
 
     externalMark.Start "workflow"
 
-    if result.Contains Parser.Arguments.Get_Books then
-      Workflow.getBooks conn innerMark
+    if result.Contains Parser.Arguments.Book_Crud then
+      Workflow.bookCrud conn bookFolder innerMark
 
     if result.Contains Parser.Arguments.Get_Logs_By_Book then
       Workflow.getLastReadingLogsByBook conn innerMark
-
-    if result.Contains Parser.Arguments.Create_Book then
-      Workflow.createOrEditBook conn bookFolder innerMark
 
     if result.Contains Parser.Arguments.Log_Reading then
       Workflow.logReading conn innerMark
