@@ -11,22 +11,62 @@ open App
 let private ddlDirectory =
   Path.Combine [| __SOURCE_DIRECTORY__ |> Directory.GetParent |> _.FullName; "ddl" |]
 
-let private schema = Path.Combine [| ddlDirectory; "schema.sql" |]
+let private schemaFile = Path.Combine [| ddlDirectory; "schema.sql" |]
+let private eraseAllFile = Path.Combine [| ddlDirectory; "erase-all.sql" |]
 
 let memoryDbFixture f () =
   let conn = Context.getBooktrackerConnection ":memory:"
-  use fs = File.OpenRead schema
-  use sr = new StreamReader(fs)
-  let sql = sr.ReadToEnd()
+
+  let schemaSql =
+    use fs = File.OpenRead schemaFile
+    use sr = new StreamReader(fs)
+    sr.ReadToEnd()
 
   conn
-  |> Db.newCommand sql
+  |> Db.newCommand schemaSql
   |> Db.setTimeout 30
   |> Db.setCommandType CommandType.Text
   |> Db.exec
   |> ignore
 
   f conn
+
+let twoConnectionsFixture f () =
+  let conn1 =
+    Environment.SpecialFolder.ApplicationData
+    |> Environment.GetFolderPath
+    |> fun path -> Context.getBooktrackerConnection (Path.Combine(path, "booktracker-test.db"))
+
+  let conn2 =
+    Environment.SpecialFolder.ApplicationData
+    |> Environment.GetFolderPath
+    |> fun path -> Context.getBooktrackerConnection (Path.Combine(path, "booktracker-test.db"))
+
+  let schemaSql =
+    use fs = File.OpenRead schemaFile
+    use sr = new StreamReader(fs)
+    sr.ReadToEnd()
+
+  let eraseAllSql =
+    use fs = File.OpenRead eraseAllFile
+    use sr = new StreamReader(fs)
+    sr.ReadToEnd()
+
+  conn1
+  |> Db.newCommand schemaSql
+  |> Db.setTimeout 30
+  |> Db.setCommandType CommandType.Text
+  |> Db.exec
+  |> ignore
+
+  conn1
+  |> Db.newCommand eraseAllSql
+  |> Db.setTimeout 30
+  |> Db.setCommandType CommandType.Text
+  |> Db.exec
+  |> ignore
+
+  f (conn1, conn2)
 
 let randomString (size: int) : string =
   let letters = [ 'a' .. 'z' ]
