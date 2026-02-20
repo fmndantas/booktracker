@@ -29,6 +29,8 @@ val updateBook:
     now: DateTime ->
         Result<BookId, AppError list>
 
+val deleteBook: Context.BooktrackerConnection -> BookId -> Result<unit, AppError list>
+
 val logReading:
     Context.BooktrackerConnection ->
     BookId ->

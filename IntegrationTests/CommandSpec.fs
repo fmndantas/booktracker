@@ -5,6 +5,8 @@ open System
 open Expecto
 open Expecto.Flip.Expect
 
+open Donald
+
 open App
 
 module Sut = Command
@@ -57,6 +59,35 @@ let ``it updates a book`` =
         let actual = head.Id, head.Title, head.Author, head.Filepath, head.Modified
         let expected = savedBookId, title, Some author, Some filepath, now
         actual |> equal "wrong book" expected
+
+let ``it deletes a book`` =
+  "it deletes a book",
+  fun conn ->
+    let createdBook = Utils.createRandomBook conn
+
+    for _ in [ 1..10 ] do
+      Command.logReading
+        conn
+        createdBook.Id
+        (Utils.randomInt1_10 ())
+        (Utils.randomInt1_10 ())
+        (Utils.random5String () |> Some)
+        DateTime.UtcNow
+      |> ignore
+
+    let count =
+      fun conn ->
+        conn
+        |> Db.newCommand "select count(*) as cnt from reading_log where id_book = @id_book"
+        |> Db.setParams [ "id_book", sqlInt64 createdBook.Id ]
+        |> Db.querySingle (fun rd -> rd.ReadInt64 "cnt")
+        |> Option.get
+
+    count conn |> equal "wrong before count" 10
+
+    let _ = Command.deleteBook conn createdBook.Id
+
+    count conn |> equal "wrong after count" 0
 
 let ``it logs reading for a book`` =
   "it logs reading for a book",
@@ -111,6 +142,7 @@ let commandSpec =
       testFixture Utils.testFixture [
         ``it creates a book``
         ``it updates a book``
+        ``it deletes a book``
         ``it returns error if a log is created with a book that does not exists``
         ``it logs reading for a book``
       ]

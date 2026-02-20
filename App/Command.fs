@@ -78,6 +78,14 @@ let updateBook
 
     Ok bookId
 
+let deleteBook (conn: Context.BooktrackerConnection) (bookId: BookId) : Result<unit, AppError list> =
+  conn
+  |> Db.newCommand
+    "delete from reading_log where id_book = @id_book; delete from book where id = @id_book;"
+  |> Db.setParams [ "id_book", sqlInt64 bookId ]
+  |> Db.exec
+  |> Ok
+
 let logReading
   (conn: Context.BooktrackerConnection)
   (bookId: BookId)
