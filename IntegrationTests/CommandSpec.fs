@@ -31,11 +31,8 @@ let ``it creates a book`` =
     |> wantOk "result is not ok"
     |> fun savedBookId ->
         let head = savedBooks.Head
-
         let actual = head.Id, head.Title, head.Author, head.Filepath, head.Modified
-
         let expected = savedBookId, title, Some author, Some filepath, now
-
         actual |> equal "wrong book" expected
 
 let ``it updates a book`` =
@@ -139,7 +136,7 @@ let ``it returns error if a log is created with a book that does not exists`` =
 let commandSpec =
   testList "command" [
     yield!
-      testFixture Utils.testFixture [
+      testFixture Utils.memoryDbFixture [
         ``it creates a book``
         ``it updates a book``
         ``it deletes a book``

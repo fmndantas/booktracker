@@ -38,4 +38,4 @@ let ``test rollback`` =
 
 [<PTests>]
 let DonaldSpec =
-  testList "donald" [ yield! testFixture Utils.testFixture [ ``test rollback`` ] ]
+  testList "donald" [ yield! testFixture Utils.memoryDbFixture [ ``test rollback`` ] ]

@@ -13,7 +13,7 @@ let private ddlDirectory =
 
 let private schema = Path.Combine [| ddlDirectory; "schema.sql" |]
 
-let testFixture f () =
+let memoryDbFixture f () =
   let conn = Context.getBooktrackerConnection ":memory:"
   use fs = File.OpenRead schema
   use sr = new StreamReader(fs)

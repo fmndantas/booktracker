@@ -113,7 +113,7 @@ let ``it returns hook command filled with book data`` =
 let querySpec =
   testList "query" [
     yield!
-      testFixture Utils.testFixture [
+      testFixture Utils.memoryDbFixture [
         ``it gets books``
         ``it gets the last reading log``
         ``it returns None when no last reading log exists``
