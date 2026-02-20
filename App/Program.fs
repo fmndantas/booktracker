@@ -8,9 +8,6 @@ open App
 // TODO: parametrize
 let bookFolder = "/home/fernando/books"
 
-[<Obsolete>]
-let connectionString = "DataSource=" + __SOURCE_DIRECTORY__ + "/../booktracker.db"
-
 let sqliteFilepath = __SOURCE_DIRECTORY__ + "/../booktracker.db"
 
 let conn = Context.getBooktrackerConnection sqliteFilepath
@@ -23,8 +20,10 @@ let printDebug (message: string) =
   if isDebug then
     printfn "[DEBUG - %s]: %s" (DateTime.UtcNow.ToString "O") message
 
-// FSharp.Data.Sql.Common.QueryEvents.SqlQueryEvent
-// |> Event.add (fun e -> printDebug (sprintf "Executing SQL: %O" e))
+conn.Open()
+
+conn.Trace
+|> Event.add (fun e -> printDebug (sprintf "Executing SQL: %s" e.Statement))
 
 let createMark () =
   let timer = Diagnostics.Stopwatch.StartNew()
@@ -65,7 +64,9 @@ let main argv =
 
     externalMark.End "workflow"
 
+    conn.Close()
     0
   with :? ArguParseException as e ->
     printf "%s" e.Message
+    conn.Close()
     1
