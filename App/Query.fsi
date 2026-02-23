@@ -37,6 +37,8 @@ val getHooks: Context.BooktrackerConnection -> Hook list
 
 val getBookById: Context.BooktrackerConnection -> BookId -> Result<Book, AppError list>
 
+val getHookById: Context.BooktrackerConnection -> HookId -> Result<Hook, AppError list>
+
 val getReadingLogs: Context.BooktrackerConnection -> BookId option -> ReadingLog list
 
 /// - Get the last reading log of a book with id `Some id`.

@@ -63,14 +63,25 @@ let getBooks (conn: Context.BooktrackerConnection) : Book list =
 let getHooks (conn: Context.BooktrackerConnection) : Hook list =
   conn |> Db.newCommand "select * from hook" |> Db.query hookFromDataReader
 
-let getBookById (conn: Context.BooktrackerConnection) (bookId: BookId) : Result<Book, AppError list> =
+let getEntityById
+  (conn: Context.BooktrackerConnection)
+  (id: int64)
+  (table: string)
+  (mapper: IDataReader -> 'T)
+  : Result<'T, AppError list> =
   conn
-  |> Db.newCommand "select * from book where id = @id"
-  |> Db.setParams [ "id", sqlInt64 bookId ]
-  |> Db.querySingle bookFromDataReader
+  |> Db.newCommand $"select * from {table} where id = @id"
+  |> Db.setParams [ "id", sqlInt64 id ]
+  |> Db.querySingle mapper
   |> function
     | Some v -> Ok v
-    | _ -> Error [ DatabaseError(sprintf "Book with id %d does not exists" bookId) ]
+    | _ -> Error [ DatabaseError(sprintf "Entity with id %d does not exists" id) ]
+
+let getBookById (conn: Context.BooktrackerConnection) (bookId: BookId) : Result<Book, AppError list> =
+  getEntityById conn bookId "book" bookFromDataReader
+
+let getHookById (conn: Context.BooktrackerConnection) (hookId: HookId) : Result<Hook, AppError list> =
+  getEntityById conn hookId "hook" hookFromDataReader
 
 let getReadingLogs (conn: Context.BooktrackerConnection) (bookId: BookId option) : ReadingLog list =
   let filterByBook =

@@ -6,6 +6,8 @@ type Mark =
 
 val bookCrud: Context.BooktrackerConnection -> bookFolder: string -> Mark -> unit
 
+val hookCrud: Context.BooktrackerConnection -> Mark -> unit
+
 val logReading: Context.BooktrackerConnection -> Mark -> unit
 
 val getLastReadingLogsByBook: Context.BooktrackerConnection -> Mark -> unit

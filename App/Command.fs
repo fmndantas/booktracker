@@ -80,8 +80,7 @@ let updateBook
 
 let deleteBook (conn: Context.BooktrackerConnection) (bookId: BookId) : Result<unit, AppError list> =
   conn
-  |> Db.newCommand
-    "delete from reading_log where id_book = @id_book; delete from book where id = @id_book;"
+  |> Db.newCommand "delete from reading_log where id_book = @id_book; delete from book where id = @id_book;"
   |> Db.setParams [ "id_book", sqlInt64 bookId ]
   |> Db.exec
   |> Ok
@@ -116,3 +115,10 @@ let logReading
     |> function
       | Some id -> Ok id
       | _ -> Error [ DatabaseError "Reading log was not created" ]
+
+let deleteHook (tran: Context.BooktrackerTransaction) (hookId: HookId) : Result<unit, AppError list> =
+  tran
+  |> Db.newCommandForTransaction "delete from hook where id = @id"
+  |> Db.setParams [ "id", sqlInt64 hookId ]
+  |> Db.exec
+  |> Ok

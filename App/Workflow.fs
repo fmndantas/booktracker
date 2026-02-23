@@ -21,10 +21,10 @@ type BookDto = {
 }
 
 type CrudResult =
-  | Create
-  | Edit
-  | List
-  | Delete of DeleteResult
+  | CreateResult
+  | EditResult
+  | ListResult
+  | DeleteResult of DeleteResult
 
 and DeleteResult =
   | Confirmed
@@ -101,6 +101,13 @@ module Helpers =
       Filepath = stringIsNoneIfHasValue noFilepath filepath
     }
 
+  let selectCrudAction () =
+    AnsiConsole.Prompt(
+      aSelectionPrompt' ()
+      |> addChoices [| "List"; "Create"; "Edit"; "Delete" |]
+      |> enableSearch
+    )
+
 let getBooks (conn: Context.BooktrackerConnection) (mark: Mark) : unit =
   mark.Start "get books"
   let books = Query.getBooksOrderedByLastReadingLog conn
@@ -125,22 +132,17 @@ let getBooks (conn: Context.BooktrackerConnection) (mark: Mark) : unit =
 
 let bookCrud (conn: Context.BooktrackerConnection) (bookFolder: string) (mark: Mark) : unit =
   result {
-    let action =
-      AnsiConsole.Prompt(
-        aSelectionPrompt' ()
-        |> addChoices [| "List"; "Create"; "Edit"; "Delete" |]
-        |> enableSearch
-      )
+    let action = selectCrudAction ()
 
     return!
-      match action with
-      | "List" ->
+      match action.ToLowerInvariant() with
+      | "list" ->
         getBooks conn mark
-        List |> Ok
-      | "Create"
-      | "Edit" ->
+        ListResult |> Ok
+      | "create"
+      | "edit" ->
         result {
-          let isCreate = action = "Create"
+          let isCreate = action.ToLowerInvariant() = "create"
 
           let! placeholderBook =
             if isCreate then
@@ -177,9 +179,9 @@ let bookCrud (conn: Context.BooktrackerConnection) (bookFolder: string) (mark: M
               bookDetails.Filepath
               DateTime.UtcNow
 
-          return if isCreate then Create else Edit
+          return if isCreate then CreateResult else EditResult
         }
-      | "Delete" ->
+      | "delete" ->
         result {
           let! bookId = selectBook conn
           let! book = Query.getBookById conn bookId
@@ -192,17 +194,55 @@ let bookCrud (conn: Context.BooktrackerConnection) (bookFolder: string) (mark: M
 
           if confirm then
             do! Command.deleteBook conn bookId
-            return Delete Confirmed
+            return DeleteResult Confirmed
           else
-            return Delete Declined
+            return DeleteResult Declined
         }
-      | _ -> failwith "TODO"
+      | notMapped -> failwith $"Book crud action not mapped: \"{notMapped}\""
   }
   |> function
-    | Ok(Create | Edit) -> AnsiConsole.MarkupLine "[green]Book was saved successfully![/]"
-    | Ok(Delete Confirmed) -> AnsiConsole.MarkupLine "[green]Book was deleted successfully![/]"
+    | Ok(CreateResult | EditResult) -> AnsiConsole.MarkupLine "[green]Book was saved successfully![/]"
+    | Ok(DeleteResult Confirmed) -> AnsiConsole.MarkupLine "[green]Book was deleted successfully![/]"
     | Ok _ -> ()
     | Error es -> showErrors es
+
+let hookCrud (conn: Context.BooktrackerConnection) (mark: Mark) : unit =
+  let action = selectCrudAction ()
+
+  match action.ToLowerInvariant() with
+  | "list" ->
+    let rows = conn |> Query.getHooks |> List.map (fun h -> [| h.Name; h.Command |])
+    let table = aTable () |> addColumns [| "Name"; "Command" |] |> addRows rows
+    AnsiConsole.Write table
+    Ok ListResult
+  | "create"
+  | "edit" ->
+    let isCreateAction = action.ToLowerInvariant() = "create"
+    failwith "TODO"
+  | "delete" ->
+    result {
+      let! hookId = selectHook conn
+      let! hook = Query.getHookById conn hookId
+
+      let confirm =
+        AnsiConsole.Confirm(
+          $"[bold yellow]Warning![/] Are you sure you want to delete [yellow]\"{hook.Name}\"[/]?",
+          false
+        )
+
+      if confirm then
+        let tran = conn.BeginTransaction()
+        do! Command.deleteHook tran hookId
+        tran.Commit()
+        return DeleteResult Confirmed
+      else
+        return DeleteResult Declined
+    }
+  | notMapped -> failwith $"Hook crud action not mapped: \"{notMapped}\""
+  |> function
+    | Ok(DeleteResult Confirmed) -> AnsiConsole.MarkupLine "[green]Book was deleted successfully![/]"
+    | Ok _ -> ()
+    | Error _ -> failwith "TODO"
 
 let logReading (conn: Context.BooktrackerConnection) (mark: Mark) : unit =
   result {

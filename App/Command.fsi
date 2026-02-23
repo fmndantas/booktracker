@@ -39,3 +39,5 @@ val logReading:
     nextTopic: string option ->
     now: DateTime ->
         Result<ReadingLogId, AppError list>
+
+val deleteHook: Context.BooktrackerTransaction -> HookId -> Result<unit, AppError list>
