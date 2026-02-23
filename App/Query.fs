@@ -146,5 +146,15 @@ let getHookCommandByReadingLog
 
 let getBooksOrderedByLastReadingLog (conn: Context.BooktrackerConnection) =
   conn
-  |> Db.newCommand "select * from book_by_last_reading_log"
+  |> Db.newCommand
+    "
+  select b.*
+  from book b
+  left join (
+    select id_book, max(read) as last_read
+    from reading_log
+    group by id_book
+  ) rl on b.id = rl.id_book
+  order by rl.last_read desc;
+  "
   |> Db.query bookFromDataReader
