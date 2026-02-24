@@ -40,4 +40,8 @@ val logReading:
     now: DateTime ->
         Result<ReadingLogId, AppError list>
 
+val createHook: Context.BooktrackerTransaction -> name: string -> HookCommand -> Result<HookId, AppError list>
+
+val updateHook: Context.BooktrackerTransaction -> HookId -> name: string -> HookCommand -> Result<HookId, AppError list>
+
 val deleteHook: Context.BooktrackerTransaction -> HookId -> Result<unit, AppError list>
