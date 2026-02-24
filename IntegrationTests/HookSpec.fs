@@ -60,4 +60,4 @@ let ``it replaces parameters in hook command`` =
     result |> equal "result is wrong" expectedCommand
 
 [<Tests>]
-let querySpec = testList "hook" [ ``it replaces parameters in hook command`` ]
+let hookSpec = testList "hook" [ ``it replaces parameters in hook command`` ]
