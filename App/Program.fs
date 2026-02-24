@@ -53,6 +53,9 @@ let main argv =
     if result.Contains Parser.Arguments.Book_Crud then
       Workflow.bookCrud conn bookFolder innerMark
 
+    if result.Contains Parser.Arguments.Hook_Crud then
+      Workflow.hookCrud conn innerMark
+
     if result.Contains Parser.Arguments.Get_Logs_By_Book then
       Workflow.getLastReadingLogsByBook conn innerMark
 

@@ -40,6 +40,16 @@ let createBook
     | Some id -> Ok id
     | None -> Error [ DatabaseError "Book was not created" ]
 
+let entityExists (table: string) (tran: Context.BooktrackerTransaction) (id: int64) : bool =
+  tran
+  |> Db.newCommandForTransaction $"select id from {table} where id = @id"
+  |> Db.setParams [ "id", sqlInt64 id ]
+  |> Db.querySingle (fun rd -> rd.ReadInt64 "id")
+  |> Option.isSome
+
+let hookExists = entityExists "hook"
+
+// TODO: dedup with entityExists after refactored book commands to use transaction
 let bookExists (conn: Context.BooktrackerConnection) (bookId: BookId) : bool =
   conn
   |> Db.newCommand "select id from book where id = @id"
@@ -80,8 +90,7 @@ let updateBook
 
 let deleteBook (conn: Context.BooktrackerConnection) (bookId: BookId) : Result<unit, AppError list> =
   conn
-  |> Db.newCommand
-    "delete from reading_log where id_book = @id_book; delete from book where id = @id_book;"
+  |> Db.newCommand "delete from reading_log where id_book = @id_book; delete from book where id = @id_book;"
   |> Db.setParams [ "id_book", sqlInt64 bookId ]
   |> Db.exec
   |> Ok
@@ -116,3 +125,43 @@ let logReading
     |> function
       | Some id -> Ok id
       | _ -> Error [ DatabaseError "Reading log was not created" ]
+
+let createHook
+  (tran: Context.BooktrackerTransaction)
+  (name: string)
+  (command: HookCommand)
+  : Result<HookId, AppError list> =
+  tran
+  |> Db.newCommandForTransaction
+    "
+    insert into hook (name, command) values (@name, @command)
+    returning id
+    "
+  |> Db.setParams [ "name", sqlString name; "command", sqlString command ]
+  |> Db.querySingle (fun rd -> rd.ReadInt64 "id")
+  |> function
+    | Some id -> Ok id
+    | None -> Error [ DatabaseError "Hook was not created" ]
+
+let updateHook
+  (tran: Context.BooktrackerTransaction)
+  (hookId: HookId)
+  (name: string)
+  (command: HookCommand)
+  : Result<HookId, AppError list> =
+  if hookExists tran hookId |> not then
+    Error [ BusinessError(sprintf "Book with id %d does not exists" hookId) ]
+  else
+    tran
+    |> Db.newCommandForTransaction "update hook set name = @name, command = @command where id = @id"
+    |> Db.setParams [ "id", sqlInt64 hookId; "name", sqlString name; "command", sqlString command ]
+    |> Db.exec
+
+    Ok hookId
+
+let deleteHook (tran: Context.BooktrackerTransaction) (hookId: HookId) : Result<unit, AppError list> =
+  tran
+  |> Db.newCommandForTransaction "delete from hook where id = @id"
+  |> Db.setParams [ "id", sqlInt64 hookId ]
+  |> Db.exec
+  |> Ok

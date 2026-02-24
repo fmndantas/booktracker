@@ -132,6 +132,44 @@ let ``it returns error if a log is created with a book that does not exists`` =
       "does not have expected error"
       (CommonTypes.AppError.BusinessError $"Book with id {1000} does not exists")
 
+let ``it creates a hook`` =
+  "it creates a hook",
+  fun (conn: Context.BooktrackerConnection) ->
+    let tran = conn.TryBeginTransaction()
+    let! result = Sut.createHook tran (Utils.random5String ()) (Utils.random5String ())
+    let uniqueHookId = conn |> Query.getHooks |> List.head |> _.Id
+
+    result
+    |> wantOk "result should be ok"
+    |> equal "hook id is incorrect" uniqueHookId
+
+let ``it updates a hook`` =
+  "it updates a hook",
+  fun (conn: Context.BooktrackerConnection) ->
+    let tran1 = conn.TryBeginTransaction()
+    Sut.createHook tran1 (Utils.random5String ()) (Utils.random5String ()) |> ignore
+    tran1.TryCommit()
+
+    let uniqueHookId = conn |> Query.getHooks |> List.head |> _.Id
+
+    let updatedName, updatedCommand = Utils.random5String (), Utils.random5String ()
+
+    let tran2 = conn.TryBeginTransaction()
+    let! result = Sut.updateHook tran2 uniqueHookId updatedName updatedCommand
+    tran2.Commit()
+
+    result
+    |> wantOk "result should be ok"
+    |> fun hookId ->
+        let (Ok updatedHook) = Query.getHookById conn hookId
+
+        updatedHook
+        |> equal "updated hook is wrong" {
+          Id = hookId
+          Name = updatedName
+          Command = updatedCommand
+        }
+
 [<Tests>]
 let commandSpec =
   testList "command" [
@@ -142,5 +180,7 @@ let commandSpec =
         ``it deletes a book``
         ``it returns error if a log is created with a book that does not exists``
         ``it logs reading for a book``
+        ``it creates a hook``
+        ``it updates a hook``
       ]
   ]

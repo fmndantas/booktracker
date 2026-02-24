@@ -4,6 +4,7 @@ open System
 open System.Diagnostics
 
 open Spectre.Console
+open Donald
 
 open CommonTypes
 open SpectreWrapper
@@ -20,11 +21,13 @@ type BookDto = {
   Filepath: string option
 }
 
+type HookDto = { Name: string; Command: HookCommand }
+
 type CrudResult =
-  | Create
-  | Edit
-  | List
-  | Delete of DeleteResult
+  | CreateResult
+  | EditResult
+  | ListResult
+  | DeleteResult of DeleteResult
 
 and DeleteResult =
   | Confirmed
@@ -74,9 +77,9 @@ module Helpers =
       )
       |> (fst >> Ok)
 
-  let askBookDetails (bookFolder: string) (PlaceholderBook: BookDto option) : BookDto =
+  let askBookDetails (bookFolder: string) (placeholderBook: BookDto option) : BookDto =
     let title, author, mainTopic =
-      match PlaceholderBook with
+      match placeholderBook with
       | None -> None, None, None
       | Some book -> Some book.Title, book.Author, book.MainTopic
 
@@ -100,6 +103,24 @@ module Helpers =
       MainTopic = stringIsNoneIfEmpty newMainTopic
       Filepath = stringIsNoneIfHasValue noFilepath filepath
     }
+
+  let askHookDetails (placeholderHook: HookDto option) : HookDto =
+    let name, command =
+      match placeholderHook with
+      | None -> None, None
+      | Some hook -> Some hook.Name, Some hook.Command
+
+    let newName = ask "[bold]Title?[/]" name
+    let newCommand = ask "[bold]Command?[/]" command
+
+    { Name = newName; Command = newCommand }
+
+  let selectCrudAction () =
+    AnsiConsole.Prompt(
+      aSelectionPrompt' ()
+      |> addChoices [| "List"; "Create"; "Edit"; "Delete" |]
+      |> enableSearch
+    )
 
 let getBooks (conn: Context.BooktrackerConnection) (mark: Mark) : unit =
   mark.Start "get books"
@@ -125,22 +146,17 @@ let getBooks (conn: Context.BooktrackerConnection) (mark: Mark) : unit =
 
 let bookCrud (conn: Context.BooktrackerConnection) (bookFolder: string) (mark: Mark) : unit =
   result {
-    let action =
-      AnsiConsole.Prompt(
-        aSelectionPrompt' ()
-        |> addChoices [| "List"; "Create"; "Edit"; "Delete" |]
-        |> enableSearch
-      )
+    let action = selectCrudAction ()
 
     return!
-      match action with
-      | "List" ->
+      match action.ToLowerInvariant() with
+      | "list" ->
         getBooks conn mark
-        List |> Ok
-      | "Create"
-      | "Edit" ->
+        ListResult |> Ok
+      | "create"
+      | "edit" ->
         result {
-          let isCreate = action = "Create"
+          let isCreate = action.ToLowerInvariant() = "create"
 
           let! placeholderBook =
             if isCreate then
@@ -177,9 +193,9 @@ let bookCrud (conn: Context.BooktrackerConnection) (bookFolder: string) (mark: M
               bookDetails.Filepath
               DateTime.UtcNow
 
-          return if isCreate then Create else Edit
+          return if isCreate then CreateResult else EditResult
         }
-      | "Delete" ->
+      | "delete" ->
         result {
           let! bookId = selectBook conn
           let! book = Query.getBookById conn bookId
@@ -192,17 +208,85 @@ let bookCrud (conn: Context.BooktrackerConnection) (bookFolder: string) (mark: M
 
           if confirm then
             do! Command.deleteBook conn bookId
-            return Delete Confirmed
+            return DeleteResult Confirmed
           else
-            return Delete Declined
+            return DeleteResult Declined
         }
-      | _ -> failwith "TODO"
+      | notMapped -> failwith $"Book crud action not mapped: \"{notMapped}\""
   }
   |> function
-    | Ok(Create | Edit) -> AnsiConsole.MarkupLine "[green]Book was saved successfully![/]"
-    | Ok(Delete Confirmed) -> AnsiConsole.MarkupLine "[green]Book was deleted successfully![/]"
+    | Ok(CreateResult | EditResult) -> AnsiConsole.MarkupLine "[green]Book was saved successfully![/]"
+    | Ok(DeleteResult Confirmed) -> AnsiConsole.MarkupLine "[green]Book was deleted successfully![/]"
     | Ok _ -> ()
     | Error es -> showErrors es
+
+let hookCrud (conn: Context.BooktrackerConnection) (mark: Mark) : unit =
+  let action = selectCrudAction ()
+
+  match action.ToLowerInvariant() with
+  | "list" ->
+    let rows = conn |> Query.getHooks |> List.map (fun h -> [| h.Name; h.Command |])
+    let table = aTable () |> addColumns [| "Name"; "Command" |] |> addRows rows
+    AnsiConsole.Write table
+    Ok ListResult
+  | "create"
+  | "edit" ->
+    result {
+      let isCreate = action.ToLowerInvariant() = "create"
+
+      let! placeholderHook =
+        if isCreate then
+          Ok None
+        else
+          result {
+            let! hookId = selectHook conn
+            let! hook = Query.getHookById conn hookId
+
+            return hook |> Some
+          }
+
+      let hookDetails =
+        askHookDetails (placeholderHook |> Option.map (fun h -> { Name = h.Name; Command = h.Command }))
+
+      let tran = conn.TryBeginTransaction()
+
+      let createOrEditFn =
+        if isCreate then
+          Command.createHook tran
+        else
+          Command.updateHook tran placeholderHook.Value.Id
+
+      let! _ = createOrEditFn hookDetails.Name hookDetails.Command
+
+      tran.TryCommit()
+
+      return if isCreate then CreateResult else EditResult
+    }
+  | "delete" ->
+    result {
+      let! hookId = selectHook conn
+      let! hook = Query.getHookById conn hookId
+
+      let confirm =
+        AnsiConsole.Confirm(
+          $"[bold yellow]Warning![/] Are you sure you want to delete [yellow]\"{hook.Name}\"[/]?",
+          false
+        )
+
+      if confirm then
+        let tran = conn.TryBeginTransaction()
+        do! Command.deleteHook tran hookId
+        tran.TryCommit()
+        return DeleteResult Confirmed
+      else
+        return DeleteResult Declined
+    }
+  | notMapped -> failwith $"Hook crud action not mapped: \"{notMapped}\""
+  |> function
+    | Ok(CreateResult | EditResult) -> AnsiConsole.MarkupLine "[green]Hook was saved successfully![/]"
+    | Ok(DeleteResult Confirmed) -> AnsiConsole.MarkupLine "[green]Hook was deleted successfully![/]"
+    | Ok _ -> ()
+    | Error _ -> failwith "TODO"
 
 let logReading (conn: Context.BooktrackerConnection) (mark: Mark) : unit =
   result {
