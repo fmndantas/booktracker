@@ -4,6 +4,7 @@ open System
 open System.Diagnostics
 
 open Spectre.Console
+open Donald
 
 open CommonTypes
 open SpectreWrapper
@@ -19,6 +20,8 @@ type BookDto = {
   MainTopic: string option
   Filepath: string option
 }
+
+type HookDto = { Name: string; Command: HookCommand }
 
 type CrudResult =
   | CreateResult
@@ -74,9 +77,9 @@ module Helpers =
       )
       |> (fst >> Ok)
 
-  let askBookDetails (bookFolder: string) (PlaceholderBook: BookDto option) : BookDto =
+  let askBookDetails (bookFolder: string) (placeholderBook: BookDto option) : BookDto =
     let title, author, mainTopic =
-      match PlaceholderBook with
+      match placeholderBook with
       | None -> None, None, None
       | Some book -> Some book.Title, book.Author, book.MainTopic
 
@@ -100,6 +103,17 @@ module Helpers =
       MainTopic = stringIsNoneIfEmpty newMainTopic
       Filepath = stringIsNoneIfHasValue noFilepath filepath
     }
+
+  let askHookDetails (placeholderHook: HookDto option) : HookDto =
+    let name, command =
+      match placeholderHook with
+      | None -> None, None
+      | Some hook -> Some hook.Name, Some hook.Command
+
+    let newName = ask "[bold]Title?[/]" name
+    let newCommand = ask "[bold]Command?[/]" command
+
+    { Name = newName; Command = newCommand }
 
   let selectCrudAction () =
     AnsiConsole.Prompt(
@@ -217,8 +231,37 @@ let hookCrud (conn: Context.BooktrackerConnection) (mark: Mark) : unit =
     Ok ListResult
   | "create"
   | "edit" ->
-    let isCreateAction = action.ToLowerInvariant() = "create"
-    failwith "TODO"
+    result {
+      let isCreate = action.ToLowerInvariant() = "create"
+
+      let! placeholderHook =
+        if isCreate then
+          Ok None
+        else
+          result {
+            let! hookId = selectHook conn
+            let! hook = Query.getHookById conn hookId
+
+            return hook |> Some
+          }
+
+      let hookDetails =
+        askHookDetails (placeholderHook |> Option.map (fun h -> { Name = h.Name; Command = h.Command }))
+
+      let tran = conn.TryBeginTransaction()
+
+      let createOrEditFn =
+        if isCreate then
+          Command.createHook tran
+        else
+          Command.updateHook tran placeholderHook.Value.Id
+
+      let! _ = createOrEditFn hookDetails.Name hookDetails.Command
+
+      tran.TryCommit()
+
+      return if isCreate then CreateResult else EditResult
+    }
   | "delete" ->
     result {
       let! hookId = selectHook conn
@@ -231,16 +274,17 @@ let hookCrud (conn: Context.BooktrackerConnection) (mark: Mark) : unit =
         )
 
       if confirm then
-        let tran = conn.BeginTransaction()
+        let tran = conn.TryBeginTransaction()
         do! Command.deleteHook tran hookId
-        tran.Commit()
+        tran.TryCommit()
         return DeleteResult Confirmed
       else
         return DeleteResult Declined
     }
   | notMapped -> failwith $"Hook crud action not mapped: \"{notMapped}\""
   |> function
-    | Ok(DeleteResult Confirmed) -> AnsiConsole.MarkupLine "[green]Book was deleted successfully![/]"
+    | Ok(CreateResult | EditResult) -> AnsiConsole.MarkupLine "[green]Hook was saved successfully![/]"
+    | Ok(DeleteResult Confirmed) -> AnsiConsole.MarkupLine "[green]Hook was deleted successfully![/]"
     | Ok _ -> ()
     | Error _ -> failwith "TODO"
 
