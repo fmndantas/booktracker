@@ -13,14 +13,18 @@ module Sut = Command
 
 let ``it creates a book`` =
   "it creates a book",
-  fun conn ->
+  fun (conn: Context.BooktrackerConnection) ->
     // arrange
+    let tran = conn.TryBeginTransaction()
+
     let title, author, mainTopic, filepath, now =
       Utils.random5String (), Utils.random5String (), Utils.random5String (), Utils.random5String (), DateTime.UtcNow
 
     // act
     let result =
-      Sut.createBook conn title (Some author) (Some mainTopic) (Some filepath) now
+      Sut.createBook tran title (Some author) (Some mainTopic) (Some filepath) now
+
+    tran.TryCommit()
 
     // assert
     let savedBooks = Query.getBooks conn
@@ -37,14 +41,17 @@ let ``it creates a book`` =
 
 let ``it updates a book`` =
   "it updates a book",
-  fun conn ->
+  fun (conn: Context.BooktrackerConnection) ->
+    let tran = conn.TryBeginTransaction()
     let createdBook = Utils.createRandomBook conn
 
     let title, author, mainTopic, filepath, now =
       Utils.random5String (), Utils.random5String (), Utils.random5String (), Utils.random5String (), DateTime.UtcNow
 
     let result =
-      Sut.updateBook conn createdBook.Id title (Some author) (Some mainTopic) (Some filepath) now
+      Sut.updateBook tran createdBook.Id title (Some author) (Some mainTopic) (Some filepath) now
+
+    tran.TryCommit()
 
     let savedBooks = Query.getBooks conn
     savedBooks |> hasLength "number of saved books should be 1" 1
@@ -59,18 +66,21 @@ let ``it updates a book`` =
 
 let ``it deletes a book`` =
   "it deletes a book",
-  fun conn ->
+  fun (conn: Context.BooktrackerConnection) ->
+    let tran1 = conn.TryBeginTransaction()
     let createdBook = Utils.createRandomBook conn
 
     for _ in [ 1..10 ] do
       Command.logReading
-        conn
+        tran1
         createdBook.Id
         (Utils.randomInt1_10 ())
         (Utils.randomInt1_10 ())
         (Utils.random5String () |> Some)
         DateTime.UtcNow
       |> ignore
+
+    tran1.TryCommit()
 
     let count =
       fun conn ->
@@ -82,14 +92,17 @@ let ``it deletes a book`` =
 
     count conn |> equal "wrong before count" 10
 
-    let _ = Command.deleteBook conn createdBook.Id
+    let tran2 = conn.TryBeginTransaction()
+    let _ = Command.deleteBook tran2 createdBook.Id
+    tran2.TryCommit()
 
     count conn |> equal "wrong after count" 0
 
 let ``it logs reading for a book`` =
   "it logs reading for a book",
-  fun conn ->
+  fun (conn: Context.BooktrackerConnection) ->
     // arrange
+    let tran = conn.TryBeginTransaction()
     let newBook = Utils.createRandomBook conn
 
     let now = DateTime.UtcNow
@@ -97,12 +110,14 @@ let ``it logs reading for a book`` =
     // act
     let! result =
       Sut.logReading
-        conn
+        tran
         newBook.Id
         (Utils.randomInt1_10 ())
         (Utils.randomInt1_10 ())
         (Utils.random5String () |> Some)
         now
+
+    tran.TryCommit()
 
     // assert
     let readingLogs = Query.getReadingLogs conn None
@@ -116,15 +131,19 @@ let ``it logs reading for a book`` =
 
 let ``it returns error if a log is created with a book that does not exists`` =
   "it returns error if a log is created with a book that does not exists",
-  fun conn ->
+  fun (conn: Context.BooktrackerConnection) ->
+    let tran = conn.TryBeginTransaction()
+
     let! result =
       Sut.logReading
-        conn
+        tran
         1000L
         (Utils.randomInt1_10 ())
         (Utils.randomInt1_10 ())
         (Utils.random5String () |> Some)
         DateTime.UtcNow
+
+    tran.TryCommit()
 
     result
     |> wantError "result should be an error"

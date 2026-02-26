@@ -145,6 +145,8 @@ let getBooks (conn: Context.BooktrackerConnection) (mark: Mark) : unit =
   mark.End "render table"
 
 let bookCrud (conn: Context.BooktrackerConnection) (bookFolder: string) (mark: Mark) : unit =
+  let tran = conn.TryBeginTransaction()
+
   result {
     let action = selectCrudAction ()
 
@@ -181,9 +183,9 @@ let bookCrud (conn: Context.BooktrackerConnection) (bookFolder: string) (mark: M
 
           let createOrEditFn =
             if isCreate then
-              Command.createBook conn
+              Command.createBook tran
             else
-              Command.updateBook conn placeholderBook.Value.Id
+              Command.updateBook tran placeholderBook.Value.Id
 
           let! _ =
             createOrEditFn
@@ -207,7 +209,7 @@ let bookCrud (conn: Context.BooktrackerConnection) (bookFolder: string) (mark: M
             )
 
           if confirm then
-            do! Command.deleteBook conn bookId
+            do! Command.deleteBook tran bookId
             return DeleteResult Confirmed
           else
             return DeleteResult Declined
@@ -215,8 +217,12 @@ let bookCrud (conn: Context.BooktrackerConnection) (bookFolder: string) (mark: M
       | notMapped -> failwith $"Book crud action not mapped: \"{notMapped}\""
   }
   |> function
-    | Ok(CreateResult | EditResult) -> AnsiConsole.MarkupLine "[green]Book was saved successfully![/]"
-    | Ok(DeleteResult Confirmed) -> AnsiConsole.MarkupLine "[green]Book was deleted successfully![/]"
+    | Ok(CreateResult | EditResult) ->
+      tran.TryCommit()
+      AnsiConsole.MarkupLine "[green]Book was saved successfully![/]"
+    | Ok(DeleteResult Confirmed) ->
+      tran.TryCommit()
+      AnsiConsole.MarkupLine "[green]Book was deleted successfully![/]"
     | Ok _ -> ()
     | Error es -> showErrors es
 
@@ -289,6 +295,8 @@ let hookCrud (conn: Context.BooktrackerConnection) (mark: Mark) : unit =
     | Error _ -> failwith "TODO"
 
 let logReading (conn: Context.BooktrackerConnection) (mark: Mark) : unit =
+  let tran = conn.TryBeginTransaction()
+
   result {
     let! bookId = selectBook conn
 
@@ -301,10 +309,12 @@ let logReading (conn: Context.BooktrackerConnection) (mark: Mark) : unit =
     let finalPage = ask' "[bold]Final page[/]?"
     let nextTopic = AnsiConsole.Prompt(aTextPrompt "[bold]Next topic[/]?" |> allowEmpty)
 
-    return! Command.logReading conn bookId initialPage finalPage (stringIsNoneIfEmpty nextTopic) DateTime.UtcNow
+    return! Command.logReading tran bookId initialPage finalPage (stringIsNoneIfEmpty nextTopic) DateTime.UtcNow
   }
   |> function
-    | Ok _ -> AnsiConsole.MarkupLine "[green]Reading log was saved successfully![/]"
+    | Ok _ ->
+      tran.TryCommit()
+      AnsiConsole.MarkupLine "[green]Reading log was saved successfully![/]"
     | Error es -> showErrors es
 
 let getLastReadingLogsByBook (conn: Context.BooktrackerConnection) (mark: Mark) : unit =

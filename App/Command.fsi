@@ -11,7 +11,7 @@ type Book =
       Filepath: string option }
 
 val createBook:
-    Context.BooktrackerConnection ->
+    Context.BooktrackerTransaction ->
     title: string ->
     author: string option ->
     mainTopic: string option ->
@@ -20,7 +20,7 @@ val createBook:
         Result<BookId, AppError list>
 
 val updateBook:
-    Context.BooktrackerConnection ->
+    Context.BooktrackerTransaction ->
     BookId ->
     title: string ->
     author: string option ->
@@ -29,10 +29,10 @@ val updateBook:
     now: DateTime ->
         Result<BookId, AppError list>
 
-val deleteBook: Context.BooktrackerConnection -> BookId -> Result<unit, AppError list>
+val deleteBook: Context.BooktrackerTransaction -> BookId -> Result<unit, AppError list>
 
 val logReading:
-    Context.BooktrackerConnection ->
+    Context.BooktrackerTransaction ->
     BookId ->
     initialPage: int ->
     finalPage: int ->

@@ -22,16 +22,19 @@ let ``it gets the last reading log`` =
   "it gets the last reading log",
   fun (conn: Context.BooktrackerConnection) ->
     // arrange
+    let tran = conn.TryBeginTransaction()
     let! book = Utils.createRandomBook conn
     let now = DateTime.UtcNow
 
     let createLogReading =
-      Command.logReading conn book.Id (Utils.randomInt 1 100) (Utils.randomInt 1 100) None
+      Command.logReading tran book.Id (Utils.randomInt 1 100) (Utils.randomInt 1 100) None
 
     let! _ = createLogReading (now.AddDays -2)
     let! _ = createLogReading (now.AddDays -1)
     // This is the reading log that should be returned
     let! _ = createLogReading now
+
+    tran.TryCommit()
 
     // act
     let result = Query.getLastReadingLogByBook conn None
@@ -53,11 +56,12 @@ let ``it returns hook command filled with book data`` =
   "it returns hook command filled with book data",
   fun (conn: Context.BooktrackerConnection) ->
     // arrange
+    let tran = conn.TryBeginTransaction()
     let! book = Utils.createRandomBook conn
 
     let! readingLogIdResult =
       Command.logReading
-        conn
+        tran
         book.Id
         (Utils.randomInt 1 100)
         (Utils.randomInt 1 100)
@@ -76,8 +80,8 @@ let ``it returns hook command filled with book data`` =
       |> Option.get
 
     let hook =
-      conn
-      |> Db.newCommand
+      tran
+      |> Db.newCommandForTransaction
         "
         insert into hook (name, command) values (@name, @command);
 
@@ -92,6 +96,8 @@ let ``it returns hook command filled with book data`` =
       ]
       |> Db.querySingle Query.hookFromDataReader
       |> Option.get
+
+    tran.TryCommit()
 
     // act
     let result = Query.getHookCommandByReadingLog conn hook.Id readingLogId

@@ -14,15 +14,15 @@ type Book = {
 }
 
 let createBook
-  (conn: Context.BooktrackerConnection)
+  (tran: Context.BooktrackerTransaction)
   (title: string)
   (author: string option)
   (mainTopic: string option)
   (filepath: string option)
   (now: DateTime)
   : Result<BookId, AppError list> =
-  conn
-  |> Db.newCommand
+  tran
+  |> Db.newCommandForTransaction
     "
     insert into book (title, author, main_topic, filepath, modified)
     values (@title, @author, @main_topic, @filepath, @now)
@@ -48,17 +48,10 @@ let entityExists (table: string) (tran: Context.BooktrackerTransaction) (id: int
   |> Option.isSome
 
 let hookExists = entityExists "hook"
-
-// TODO: dedup with entityExists after refactored book commands to use transaction
-let bookExists (conn: Context.BooktrackerConnection) (bookId: BookId) : bool =
-  conn
-  |> Db.newCommand "select id from book where id = @id"
-  |> Db.setParams [ "id", sqlInt64 bookId ]
-  |> Db.querySingle (fun rd -> rd.ReadInt64 "id")
-  |> Option.isSome
+let bookExists = entityExists "book"
 
 let updateBook
-  (conn: Context.BooktrackerConnection)
+  (tran: Context.BooktrackerTransaction)
   (bookId: BookId)
   (title: string)
   (author: string option)
@@ -66,11 +59,11 @@ let updateBook
   (filepath: string option)
   (now: DateTime)
   : Result<BookId, AppError list> =
-  if bookExists conn bookId |> not then
+  if bookExists tran bookId |> not then
     Error [ BusinessError(sprintf "Book with id %d does not exists" bookId) ]
   else
-    conn
-    |> Db.newCommand
+    tran
+    |> Db.newCommandForTransaction
       "
       update book set 
       title = @title, author = @author, main_topic = @main_topic, filepath = @filepath, modified = @now
@@ -88,26 +81,27 @@ let updateBook
 
     Ok bookId
 
-let deleteBook (conn: Context.BooktrackerConnection) (bookId: BookId) : Result<unit, AppError list> =
-  conn
-  |> Db.newCommand "delete from reading_log where id_book = @id_book; delete from book where id = @id_book;"
+let deleteBook (tran: Context.BooktrackerTransaction) (bookId: BookId) : Result<unit, AppError list> =
+  tran
+  |> Db.newCommandForTransaction
+    "delete from reading_log where id_book = @id_book; delete from book where id = @id_book;"
   |> Db.setParams [ "id_book", sqlInt64 bookId ]
   |> Db.exec
   |> Ok
 
 let logReading
-  (conn: Context.BooktrackerConnection)
+  (tran: Context.BooktrackerTransaction)
   (bookId: BookId)
   (initialPage: int)
   (finalPage: int)
   (nextTopic: string option)
   (now: DateTime)
   : Result<ReadingLogId, AppError list> =
-  if bookExists conn bookId |> not then
+  if bookExists tran bookId |> not then
     Error [ BusinessError(sprintf "Book with id %d does not exists" bookId) ]
   else
-    conn
-    |> Db.newCommand
+    tran
+    |> Db.newCommandForTransaction
       "
       insert into reading_log
       (id_book, initial_page, final_page, read, modified, next_topic)

@@ -82,6 +82,7 @@ let randomInt a b = Random().Next(a, b)
 
 let randomInt1_10 () = randomInt 1 10
 
+// TODO: use Context.BooktrackerTransaction here?
 let createRandomBook (conn: Context.BooktrackerConnection) : Query.Book =
   let book =
     {
