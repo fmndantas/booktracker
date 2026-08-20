@@ -1,5 +1,6 @@
 ﻿// For more information see https://aka.ms/fsharp-console-apps
 open System
+open System.IO
 
 open Argu
 
@@ -8,7 +9,9 @@ open App
 // TODO: parametrize
 let bookFolder = "/home/fernando/books"
 
-let sqliteFilepath = __SOURCE_DIRECTORY__ + "/../booktracker.db"
+let sqliteFilepath = Path.Join(__SOURCE_DIRECTORY__, "..", "test.db")
+
+let migrationsFolder = Path.Join(__SOURCE_DIRECTORY__, "..", "migrations")
 
 let conn = Context.getBooktrackerConnection sqliteFilepath
 
@@ -47,6 +50,12 @@ let main argv =
 
     let externalMark = createMark ()
     let innerMark = createMark ()
+
+    externalMark.Start "migration"
+
+    Migrate.migrate conn printDebug migrationsFolder
+
+    externalMark.End "migration"
 
     externalMark.Start "workflow"
 
