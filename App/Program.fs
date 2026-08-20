@@ -21,8 +21,6 @@ let migrationsFolder = Path.Join(__SOURCE_DIRECTORY__, "..", "migrations")
 
 let conn = Context.getBooktrackerConnection sqliteFilepath
 
-let parser = ArgumentParser.Create<Parser.Arguments>(programName = "booktracker")
-
 let mutable isDebug = false
 
 let printDebug (message: string) =
@@ -47,44 +45,123 @@ let createMark () =
 
   ({ Start = startMark; End = endMark }: Workflow.Mark)
 
-[<EntryPoint>]
-let main argv =
-  try
-    let result = parser.ParseCommandLine argv
+module CLI =
+  let main argv =
+    try
+      let parser = ArgumentParser.Create<Parser.Arguments>(programName = "booktracker")
 
-    isDebug <- result.Contains Parser.Debug
+      let result = parser.ParseCommandLine argv
 
-    let externalMark = createMark ()
-    let innerMark = createMark ()
+      isDebug <- result.Contains Parser.Debug
 
-    externalMark.Start "migration"
+      let externalMark = createMark ()
+      let innerMark = createMark ()
 
-    Migrate.migrate conn printDebug migrationsFolder
+      externalMark.Start "migration"
 
-    externalMark.End "migration"
+      Migrate.migrate conn printDebug migrationsFolder
 
-    externalMark.Start "workflow"
+      externalMark.End "migration"
 
-    if result.Contains Parser.Arguments.Book_Crud then
-      Workflow.bookCrud conn bookFolder innerMark
+      externalMark.Start "workflow"
 
-    if result.Contains Parser.Arguments.Hook_Crud then
-      Workflow.hookCrud conn innerMark
+      if result.Contains Parser.Arguments.Book_Crud then
+        Workflow.bookCrud conn bookFolder innerMark
 
-    if result.Contains Parser.Arguments.Get_Logs_By_Book then
-      Workflow.getLastReadingLogsByBook conn innerMark
+      if result.Contains Parser.Arguments.Hook_Crud then
+        Workflow.hookCrud conn innerMark
 
-    if result.Contains Parser.Arguments.Log_Reading then
-      Workflow.logReading conn innerMark
+      if result.Contains Parser.Arguments.Get_Logs_By_Book then
+        Workflow.getLastReadingLogsByBook conn innerMark
 
-    if result.Contains Parser.Arguments.Continue_Last_Reading then
-      Workflow.continueLastReading conn innerMark
+      if result.Contains Parser.Arguments.Log_Reading then
+        Workflow.logReading conn innerMark
 
-    externalMark.End "workflow"
+      if result.Contains Parser.Arguments.Continue_Last_Reading then
+        Workflow.continueLastReading conn innerMark
 
-    conn.Close()
+      externalMark.End "workflow"
+
+      conn.Close()
+      0
+    with :? ArguParseException as e ->
+      printf "%s" e.Message
+      conn.Close()
+      1
+
+module TUI =
+  open System.Collections.Generic
+  open Terminal.Gui.App
+  open Terminal.Gui.ViewBase
+  open Terminal.Gui.Views
+
+  let table (columns: string list) (rows: string list list) =
+    let columnDefs =
+      columns
+      |> List.mapi (fun i c -> c, Func<string list, obj>(fun row -> box row.[i]))
+      |> dict
+      |> Dictionary<_, _>
+
+    let tableView =
+      new TableView(Width = Dim.Fill(), Height = Dim.Fill(), Table = EnumerableTableSource(rows, columnDefs))
+
+    columns
+    |> List.iteri (fun i _ ->
+      let style = tableView.Style.GetOrCreateColumnStyle i
+      style.MinWidth <- 16
+      style.MaxWidth <- 32)
+
+    tableView
+
+  let main argv =
+    use app = Application.Create()
+    app.Init() |> ignore
+    use window = new Window(Title = "Booktracker")
+
+    let booksView =
+      new FrameView(Title = "Books", Width = Dim.Fill(), Height = Dim.Fill())
+
+    let booksTable =
+      table [ "Title"; "Progress"; "Last topic" ] [
+        [ "Dune"; "42%"; "Chapter 12" ]
+        [ "Neuromancer"; "87%"; "Chateau Rouge" ]
+        [ "Foundation"; "10%"; "Part I" ]
+      ]
+
+    booksView.Add booksTable |> ignore
+
+    let hooksView =
+      new FrameView(Title = "Hooks", Width = Dim.Fill(), Height = Dim.Fill())
+
+    booksView.Visible <- true
+    hooksView.Visible <- false
+
+    window.Add(booksView, hooksView)
+
+    let showBooksView () =
+      booksView.Visible <- true
+      hooksView.Visible <- false
+
+    let showHooksView () =
+      booksView.Visible <- false
+      hooksView.Visible <- true
+
+    let manageBooksItem =
+      new MenuItem("_Manage books", "", Action(fun () -> showBooksView ()))
+
+    let manageHooksItem =
+      new MenuItem("_Manage hooks", "", Action(fun () -> showHooksView ()))
+
+    let booksMenu = new MenuBarItem("_Books", [ manageBooksItem :> View ])
+    let hooksMenu = new MenuBarItem("_Hooks", [ manageHooksItem :> View ])
+
+    let menu = new MenuBar([ booksMenu; hooksMenu ])
+
+    window.Add menu |> ignore
+
+    app.Run window |> ignore
+
     0
-  with :? ArguParseException as e ->
-    printf "%s" e.Message
-    conn.Close()
-    1
+
+[<EntryPoint>]
+let main argv = TUI.main argv
