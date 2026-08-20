@@ -1,4 +1,4 @@
-module IntegrationTests.Utils
+module Tests.Utils
 
 open System
 open System.IO

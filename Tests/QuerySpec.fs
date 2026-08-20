@@ -1,4 +1,4 @@
-module IntegrationTests.QuerySpec
+module Tests.QuerySpec
 
 open System
 

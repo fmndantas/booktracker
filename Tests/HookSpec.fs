@@ -1,4 +1,4 @@
-module IntegrationTests.HookSpec
+module Tests.HookSpec
 
 open Expecto
 open Expecto.Flip.Expect

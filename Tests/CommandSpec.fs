@@ -1,4 +1,4 @@
-module IntegrationTests.CommandSpec
+module Tests.CommandSpec
 
 open System
 

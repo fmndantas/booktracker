@@ -1,4 +1,4 @@
-module IntegrationTests.DonaldSpec
+module Tests.DonaldSpec
 
 open System
 

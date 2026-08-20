@@ -1,4 +1,4 @@
-﻿namespace IntegrationTests
+﻿namespace Tests
 
 open Expecto
 
