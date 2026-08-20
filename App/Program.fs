@@ -9,9 +9,13 @@ open App
 // TODO: parametrize
 let bookFolder = "/home/fernando/books"
 
-let sqliteFilepath = 
-  let applicationData = Environment.GetFolderPath Environment.SpecialFolder.LocalApplicationData
-  Path.Join(applicationData, "booktracker", "booktracker.db")
+let sqliteFilepath =
+  let applicationData =
+    Environment.GetFolderPath Environment.SpecialFolder.LocalApplicationData
+
+  let booktrackerFolder = Path.Join(applicationData, "booktracker")
+  Directory.CreateDirectory booktrackerFolder |> ignore
+  Path.Join(booktrackerFolder, "booktracker.db")
 
 let migrationsFolder = Path.Join(__SOURCE_DIRECTORY__, "..", "migrations")
 
