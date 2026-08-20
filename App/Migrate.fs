@@ -34,8 +34,10 @@ let migrate conn printDebug migrationsFolder : unit =
         None)
     |> Array.filter (fst >> (<) userVersion)
     |> Array.sortBy fst
+    |> Array.map snd
+    |> Seq.zip (Seq.initInfinite (fun i -> i + 1))
 
-  for _, filepath in migrations do
+  for addToUserVersion, filepath in migrations do
     sprintf "applying migration %s" filepath |> printDebug
 
     let sql = File.ReadAllText filepath
@@ -46,7 +48,7 @@ let migrate conn printDebug migrationsFolder : unit =
     tran |> Db.newCommandForTransaction sql |> Db.exec
     tran.TryCommit()
 
-    (sprintf "PRAGMA user_version = %d" (userVersion + 1), conn)
+    (sprintf "PRAGMA user_version = %d" (userVersion + addToUserVersion), conn)
     ||> Db.newCommand
     |> Db.exec
 
